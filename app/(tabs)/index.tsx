@@ -1,4 +1,4 @@
-import { DashboardContainer } from '@/screens/dashboard-container';
+import { DashboardContainer } from '@/pages/dashboard-container';
 
 export default function HomeScreen() {
   return <DashboardContainer />;

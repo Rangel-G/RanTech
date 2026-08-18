@@ -4,12 +4,14 @@
     "slug": "RanTech_Mobile",
     "version": "1.0.0",
     "orientation": "default",
-    "icon": "./assets/images/icon.png",
     "scheme": "rantechmobile",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "O aplicativo precisa do Bluetooth para se conectar à Fita LED e ao leitor OBDII."
+      }
     },
     "androidStatusBar": {
       "hidden": true,
@@ -23,6 +25,17 @@
     "plugins": [
       "expo-router",
       [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "modes": [
+            "peripheral",
+            "central"
+          ],
+          "bluetoothAlwaysPermission": "O aplicativo precisa do Bluetooth para se conectar à Fita LED e ao leitor OBDII."
+        }
+      ],
+      [
         "expo-navigation-bar",
         {
           "visibility": "hidden",
@@ -33,7 +46,6 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
@@ -45,18 +57,21 @@
     ],
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#E6F4FE"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.RanTech_Mobile"
+      "package": "com.anonymous.RanTech_Mobile",
+      "permissions": [
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "output": "static"
     },
     "experiments": {
       "typedRoutes": true,

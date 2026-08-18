@@ -1,9 +1,9 @@
 import { COLORS } from '@/constants/global-styles';
-import { DailyDashboard } from '@/screens/daily-dashboard';
-import { DriftDashboard } from '@/screens/drift-dashboard';
-import { SportDashboard } from '@/screens/sport-dashboard';
-import { StreetDashboard } from '@/screens/street-dashboard';
-import { TrackDashboard } from '@/screens/track-dashboard';
+import { DailyDashboard } from '@/pages/daily-dashboard';
+import { DriftDashboard } from '@/pages/drift-dashboard';
+import { SportDashboard } from '@/pages/sport-dashboard';
+import { StreetDashboard } from '@/pages/street-dashboard';
+import { TrackDashboard } from '@/pages/track-dashboard';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 

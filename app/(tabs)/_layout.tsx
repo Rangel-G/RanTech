@@ -13,7 +13,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-    
+
         tabBarButton: HapticTab,
         tabBarActiveTintColor: COLORS.tabBar.text,
         tabBarInactiveTintColor: COLORS.tabBar.inactiveText,
@@ -72,6 +72,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="led"
+        options={{
+          title: 'Fita LED',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="settings-outline" size={size || 20} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: 'Ajustes',
@@ -80,6 +89,7 @@ export default function TabLayout() {
           ),
         }}
       />
+
     </Tabs>
   );
 }

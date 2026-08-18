@@ -1,4 +1,4 @@
-import { DataloggerScreen } from '@/screens/datalogger-screen';
+import { DataloggerScreen } from '@/pages/datalogger-screen';
 
 export default function DataloggerTab() {
   return <DataloggerScreen />;
