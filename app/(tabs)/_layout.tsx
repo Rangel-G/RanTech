@@ -76,7 +76,7 @@ export default function TabLayout() {
         options={{
           title: 'Fita LED',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size || 20} color={color} />
+            <Ionicons name="bulb-outline" size={size || 20} color={color} />
           ),
         }}
       />
