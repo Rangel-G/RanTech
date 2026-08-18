@@ -1,7 +1,7 @@
 import { ChannelBox } from '@/components/ui/channel-box';
+import { GEAR_OPTIONS } from '@/constants/gear-options';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { GEAR_OPTIONS } from './daily-dashboard';
 
 export function TrackDashboard() {
     const [data, setData] = useState({
