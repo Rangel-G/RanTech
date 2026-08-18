@@ -54,7 +54,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="datalogger"
+        name="maps"
         options={{
           title: 'Mapas',
           tabBarIcon: ({ color, size }) => (
@@ -63,7 +63,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="maps"
+        name="datalogger"
         options={{
           title: 'Datalogger',
           tabBarIcon: ({ color, size }) => (

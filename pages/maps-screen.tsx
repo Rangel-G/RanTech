@@ -49,6 +49,14 @@ const MAP_SLOTS: MapSlot[] = [
   },
 ];
 
+const PROFILE_MAP: Record<string, 'daily' | 'street' | 'track' | 'drift' | 'sport'> = {
+  diario: 'daily',
+  rua: 'street',
+  pista: 'track',
+  drift: 'drift',
+  sport: 'sport',
+};
+
 export function MapsScreen() {
   const { selectedProfile, setSelectedProfile } = useDashboardProfile();
 
@@ -78,33 +86,19 @@ export function MapsScreen() {
               styles.mapSelectBox,
               activeSlot === slot.id && styles.mapSelectBoxActive,
             ]}
-            onPress={() => {
-              const profileMap: Record<string, 'daily' | 'street' | 'track' | 'drift' | 'sport'> = {
-                diario: 'daily',
-                rua: 'street',
-                pista: 'track',
-                drift: 'drift',
-                sport: 'sport',
-              };
-
-              setSelectedProfile(profileMap[slot.id]);
-            }}
+            onPress={() => setSelectedProfile(PROFILE_MAP[slot.id])}
           >
-            <View style={styles.mapSlotTag}>
-              <Text style={styles.mapSlotText}>Slot {slot.slot}</Text>
-            </View>
             <View style={styles.mapContentContainer}>
               <Text style={styles.mapEmoji}>{slot.emoji}</Text>
               <Text style={styles.mapTitle}>{slot.title}</Text>
             </View>
+
             <Text style={styles.mapDescription}>{slot.description}</Text>
 
             {activeSlot === slot.id && <View style={styles.activeIndicator} />}
           </Pressable>
         ))}
       </View>
-
-      
     </ScrollView>
   );
 }
@@ -139,20 +133,26 @@ const styles = StyleSheet.create({
     color: '#8be8ff',
     letterSpacing: 0.5,
   },
+  /* ------------------- GRID LAYOUT FIXES ------------------- */
   slotsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
     gap: 12,
     marginBottom: 24,
   },
   mapSelectBox: {
+    width: '48.5%', // Guarantees 2 items per row
     backgroundColor: 'rgba(0, 50, 100, 0.1)',
     borderWidth: 2,
     borderColor: 'rgba(0, 255, 255, 0.15)',
     borderRadius: 8,
     paddingVertical: 16,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     position: 'relative',
     overflow: 'hidden',
   },
+  /* --------------------------------------------------------- */
   mapSelectBoxActive: {
     backgroundColor: 'rgba(0, 150, 200, 0.15)',
     borderColor: 'rgba(0, 255, 255, 0.5)',
@@ -161,41 +161,27 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  mapSlotTag: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(0, 255, 255, 0.15)',
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginBottom: 10,
-  },
-  mapSlotText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#00ffff',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
   mapContentContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
   },
   mapEmoji: {
-    fontSize: 28,
-    marginRight: 12,
+    fontSize: 24,
+    marginRight: 8,
   },
   mapTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '900',
     color: '#ffffff',
     letterSpacing: 0.3,
+    flexShrink: 1,
   },
   mapDescription: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#aaddff',
-    lineHeight: 18,
-    marginTop: 6,
+    lineHeight: 16,
+    marginTop: 4,
   },
   activeIndicator: {
     position: 'absolute',
@@ -208,34 +194,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.6,
     shadowRadius: 4,
     elevation: 3,
-  },
-  detailsPanel: {
-    backgroundColor: 'rgba(0, 100, 150, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 255, 255, 0.3)',
-    borderRadius: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 14,
-    marginTop: 16,
-  },
-  detailsTitle: {
-    fontSize: 12,
-    color: '#8be8ff',
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    marginBottom: 8,
-  },
-  detailsText: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#ffffff',
-    marginBottom: 8,
-    letterSpacing: 0.2,
-  },
-  detailsDescription: {
-    fontSize: 13,
-    color: '#aaddff',
-    lineHeight: 18,
   },
 });
