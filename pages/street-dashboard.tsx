@@ -11,10 +11,17 @@ export function StreetDashboard() {
     power: 0,
   });
 
+  const toggleTC = () => {
+    setData((prev) => ({
+      ...prev,
+      tc: !prev.tc,
+    }));
+  };
+
   useEffect(() => {
     const interval = setInterval(() => {
       setData((prev) => ({
-        ...prev,
+        ...prev, // Preserva o estado de tc atualizado pelo usuário
         speed: Math.max(0, prev.speed + Math.random() * 20 - 5),
         gear: GEAR_OPTIONS[Math.floor(Math.random() * GEAR_OPTIONS.length)],
         power: Math.max(0, Math.min(100, prev.power + Math.random() * 30 - 15)),
@@ -25,9 +32,8 @@ export function StreetDashboard() {
 
   return (
     <View style={styles.container}>
-      {/* Main Grid Layout replicating DailyDashboard structure */}
       <View style={styles.gridContainer}>
-        {/* Left Column: Velocidade (Takes full height) */}
+        {/* Esquerda: Velocidade */}
         <View style={styles.leftColumn}>
           <ChannelBox
             label="Velocidade"
@@ -36,25 +42,10 @@ export function StreetDashboard() {
             size="large"
             theme="default"
           />
-          {/* Bottom Row: Controle de Tração */}
-          <View style={styles.row}>
-            <View style={styles.cell}>
-              <ChannelBox
-                label="Controle de Tração"
-                value={data.tc ? 'ATIVO' : 'INATIVO'}
-                unit="STATUS TC"
-                size="small"
-                theme={data.tc ? 'success' : 'warning'}
-                isActive={data.tc}
-              />
-            </View>
-          </View>
         </View>
 
-
-        {/* Right Section: 2x2 Grid for smaller cards */}
+        {/* Direita: Grid 2x2 */}
         <View style={styles.rightSection}>
-          {/* Top Row: Marcha & Carga Motor */}
           <View style={styles.row}>
             <View style={styles.cell}>
               <ChannelBox
@@ -76,7 +67,19 @@ export function StreetDashboard() {
             </View>
           </View>
 
-
+          <View style={styles.row}>
+            <View style={styles.cell}>
+              <ChannelBox
+                label="Controle de Tração"
+                value={data.tc ? 'ATIVO' : 'INATIVO'}
+                unit="STATUS TC"
+                size="small"
+                theme={data.tc ? 'success' : 'error'}
+                isActive={data.tc}
+                onPress={toggleTC}
+              />
+            </View>
+          </View>
         </View>
       </View>
     </View>

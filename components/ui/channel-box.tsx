@@ -37,11 +37,13 @@ export function ChannelBox({
     return (
         <Pressable
             onPress={onPress}
-            style={[
+            disabled={!onPress}
+            style={({ pressed }) => [
                 styles.container,
                 sizeStyles[size],
                 themeStyles[theme],
                 isActive && styles.active,
+                pressed && onPress && { opacity: 0.7 },
             ]}
         >
             <Text style={styles.label}>{label}</Text>
@@ -79,10 +81,10 @@ const styles = StyleSheet.create({
         borderColor: COLORS.overlay.cyan.medium,
     },
     themeSuccess: {
-        borderColor: `rgba(${parseInt(COLORS.status.connected.slice(1,3), 16)}, ${parseInt(COLORS.status.connected.slice(3,5), 16)}, ${parseInt(COLORS.status.connected.slice(5,7), 16)}, 0.3)`,
+        borderColor: `rgba(${parseInt(COLORS.status.connected.slice(1, 3), 16)}, ${parseInt(COLORS.status.connected.slice(3, 5), 16)}, ${parseInt(COLORS.status.connected.slice(5, 7), 16)}, 0.3)`,
     },
     themeWarning: {
-        borderColor: `rgba(${parseInt(COLORS.neon.orange.slice(1,3), 16)}, ${parseInt(COLORS.neon.orange.slice(3,5), 16)}, ${parseInt(COLORS.neon.orange.slice(5,7), 16)}, 0.3)`,
+        borderColor: `rgba(${parseInt(COLORS.neon.orange.slice(1, 3), 16)}, ${parseInt(COLORS.neon.orange.slice(3, 5), 16)}, ${parseInt(COLORS.neon.orange.slice(5, 7), 16)}, 0.3)`,
     },
     themeError: {
         borderColor: COLORS.overlay.red.medium,
