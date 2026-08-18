@@ -1,0 +1,125 @@
+import { ChannelBox } from '@/components/ui/channel-box';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { GEAR_OPTIONS } from './daily-dashboard';
+
+export function TrackDashboard() {
+    const [data, setData] = useState({
+        rpm: 0,
+        temp: 0,
+        map: 0,
+        gear: 'N',
+        speed: 0,
+        power: 0,
+    });
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setData((prev) => ({
+                ...prev,
+                rpm: Math.max(0, Math.min(8000, prev.rpm + Math.random() * 400 - 100)),
+                temp: Math.max(20, Math.min(120, prev.temp + Math.random() * 4 - 2)),
+                map: Math.max(0, Math.min(1.5, prev.map + Math.random() * 0.2 - 0.1)),
+                gear: GEAR_OPTIONS[Math.floor(Math.random() * GEAR_OPTIONS.length)],
+                speed: Math.max(0, prev.speed + Math.random() * 20 - 5),
+                power: Math.max(0, Math.min(100, prev.power + Math.random() * 30 - 15)),
+            }));
+        }, 800);
+        return () => clearInterval(interval);
+    }, []);
+
+    return (
+        <View style={styles.container}>
+            {/* Full-width RPM box at top */}
+            <View style={styles.fullWidthBox}>
+                <ChannelBox
+                    label="Rotação Motor"
+                    value={Math.round(data.rpm)}
+                    unit="RPM"
+                    size="large"
+                    theme="default"
+                />
+            </View>
+
+            {/* 3-column grid for middle row */}
+            <View style={styles.threeColumnRow}>
+                <View style={styles.boxWrapper}>
+                    <ChannelBox
+                        label="Temp. Motor"
+                        value={Math.round(data.temp)}
+                        unit="°C"
+                        size="small"
+                        theme={data.temp > 95 ? 'warning' : 'default'}
+                    />
+                </View>
+                <View style={styles.boxWrapper}>
+                    <ChannelBox
+                        label="Pressão MAP"
+                        value={data.map.toFixed(2)}
+                        unit="BAR"
+                        size="small"
+                        theme="default"
+                    />
+                </View>
+                <View style={styles.boxWrapper}>
+                    <ChannelBox
+                        label="Marcha"
+                        value={data.gear}
+                        unit="GEAR"
+                        size="small"
+                        theme="default"
+                    />
+                </View>
+            </View>
+
+            {/* Bottom row - Speed (1 col), Power (2 cols) */}
+            <View style={styles.twoRowBottom}>
+                <View style={[styles.boxWrapper, { flex: 1 }]}>
+                    <ChannelBox
+                        label="Velocidade"
+                        value={Math.round(data.speed)}
+                        unit="KM/H"
+                        size="small"
+                        theme="default"
+                    />
+                </View>
+                <View style={[styles.boxWrapper, { flex: 2 }]}>
+                    <ChannelBox
+                        label="Carga do Motor"
+                        value={`${Math.round(data.power)}%`}
+                        unit="LOAD"
+                        size="small"
+                        theme="default"
+                    />
+                </View>
+            </View>
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: 'rgba(2, 8, 16, 0.96)',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(0, 255, 255, 0.12)',
+    },
+    fullWidthBox: {
+        width: '100%',
+        marginBottom: 12,
+    },
+    threeColumnRow: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 12,
+    },
+    boxWrapper: {
+        flex: 1,
+    },
+    twoRowBottom: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+});
