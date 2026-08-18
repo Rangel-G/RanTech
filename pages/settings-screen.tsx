@@ -1,6 +1,25 @@
 import { ExpandablePanel } from '@/components/ui/expandable-panel';
-import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TextInput,
+    View,
+} from 'react-native';
+import {
+    DEFAULT_GEAR_SETTINGS,
+    DEFAULT_LED_SETTINGS,
+    DEFAULT_OBD_SETTINGS,
+    GearSettings,
+    LedSettings,
+    ObdSettings,
+    SettingsStorage,
+} from '../services/storage/settings-storage';
 
 export function SettingsScreen() {
     const obdTypeOptions = [
@@ -19,35 +38,52 @@ export function SettingsScreen() {
         { value: 'can29-250', label: 'CAN 29-bit / 250 Kbps' },
     ];
 
-    const [obdSettings, setObdSettings] = useState({
-        connected: false,
-        connectionType: 'bluetooth',
-        port: 'COM4',
-        baudRate: '115200',
-        protocol: 'auto',
-        ftdiDevice: '',
-    });
-
-    const [ledSettings, setLedSettings] = useState({
-        name: 'LEDDMX-000101',
-        uuid: '0000ffe1-0000-1000-8000-00805f9b34fb',
-        redlineRpm: '3000',
-        blinkSpeed: '70',
-        colorNormal: '#0084ff',
-        colorRedline: '#ff0000',
-        autoShift: true,
-    });
-
-    const [gearSettings, setGearSettings] = useState({
-        ratios: '3.58,1.93,1.41,1.11,0.88',
-        differential: '4.25',
-        tirePerimeter: '1.83',
-    });
-
     const ftdiDevices = [
         { value: '', label: '-- Nenhum adaptador encontrado --' },
         { value: 'FTDI-123456', label: 'FTDI-123456' },
     ];
+
+    const [isLoading, setIsLoading] = useState(true);
+    const [obdSettings, setObdSettings] = useState<ObdSettings>(DEFAULT_OBD_SETTINGS);
+    const [ledSettings, setLedSettings] = useState<LedSettings>(DEFAULT_LED_SETTINGS);
+    const [gearSettings, setGearSettings] = useState<GearSettings>(DEFAULT_GEAR_SETTINGS);
+
+    // Carrega as configurações do AsyncStorage ao abrir a tela
+    useEffect(() => {
+        async function loadAllSettings() {
+            setIsLoading(true);
+            const [savedObd, savedLed, savedGear] = await Promise.all([
+                SettingsStorage.getObdSettings(),
+                SettingsStorage.getLedSettings(),
+                SettingsStorage.getGearSettings(),
+            ]);
+
+            setObdSettings(savedObd);
+            setLedSettings(savedLed);
+            setGearSettings(savedGear);
+            setIsLoading(false);
+        }
+        loadAllSettings();
+    }, []);
+
+    const handleSaveObd = async () => {
+        await SettingsStorage.saveObdSettings(obdSettings);
+        Alert.alert('Sucesso', 'Configurações de Conexão OBD salvas!');
+    };
+
+    const handleSaveLed = async () => {
+        if (!ledSettings.name.trim() || !ledSettings.uuid.trim()) {
+            Alert.alert('Erro', 'Nome e UUID do LED não podem ficar vazios.');
+            return;
+        }
+        await SettingsStorage.saveLedSettings(ledSettings);
+        Alert.alert('Sucesso', 'Configurações do LED salvas!');
+    };
+
+    const handleSaveGear = async () => {
+        await SettingsStorage.saveGearSettings(gearSettings);
+        Alert.alert('Sucesso', 'Relações de Marcha salvas!');
+    };
 
     const renderOptionButtonList = (
         items: Array<{ value: string; label: string }>,
@@ -79,11 +115,19 @@ export function SettingsScreen() {
         </View>
     );
 
+    if (isLoading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#00ffff" />
+            </View>
+        );
+    }
+
     const showFtdiSelector = obdSettings.connectionType === 'usb';
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-            {/* OBD-II Configuration Panel */}
+            {/* Configuração OBD-II */}
             <ExpandablePanel title="Configurar Conexão" icon="🔌" status={obdSettings.port} defaultExpanded>
                 <View style={styles.fieldContainer}>
                     <Text style={styles.fieldLabel}>Tipo de Conexão</Text>
@@ -178,7 +222,7 @@ export function SettingsScreen() {
                 <View style={styles.buttonRow}>
                     <Pressable
                         style={[styles.actionButton, styles.saveButton]}
-                        onPress={() => console.log('Saving OBD settings', obdSettings)}
+                        onPress={handleSaveObd}
                     >
                         <Text style={styles.buttonText}>✓ Salvar Conexão</Text>
                     </Pressable>
@@ -195,8 +239,8 @@ export function SettingsScreen() {
                 </View>
             </ExpandablePanel>
 
-            {/* LED Device Configuration */}
-            <ExpandablePanel title="Configurar Dispositivo LED" icon="💡" status="LEDDMX">
+            {/* Configuração Dispositivo LED */}
+            <ExpandablePanel title="Configurar Dispositivo LED" icon="💡" status={ledSettings.name}>
                 <View style={styles.fieldContainer}>
                     <Text style={styles.fieldLabel}>Nome do Dispositivo BLE</Text>
                     <TextInput
@@ -205,6 +249,7 @@ export function SettingsScreen() {
                         onChangeText={(text) => setLedSettings({ ...ledSettings, name: text })}
                         placeholder="LEDDMX-000101"
                         placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                        autoCapitalize="none"
                     />
                 </View>
 
@@ -216,6 +261,7 @@ export function SettingsScreen() {
                         onChangeText={(text) => setLedSettings({ ...ledSettings, uuid: text })}
                         placeholder="0000ffe1-0000-1000-8000-00805f9b34fb"
                         placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                        autoCapitalize="none"
                     />
                 </View>
 
@@ -288,14 +334,14 @@ export function SettingsScreen() {
                 <View style={styles.buttonRow}>
                     <Pressable
                         style={[styles.actionButton, styles.saveButton]}
-                        onPress={() => console.log('Saving LED settings', ledSettings)}
+                        onPress={handleSaveLed}
                     >
                         <Text style={styles.buttonText}>✓ Salvar LED</Text>
                     </Pressable>
                 </View>
             </ExpandablePanel>
 
-            {/* Gear Calibration */}
+            {/* Calibração de Marchas */}
             <ExpandablePanel title="Calibrar Rel. Marcha" icon="🚗" status="5 marchas">
                 <View style={styles.fieldContainer}>
                     <Text style={styles.fieldLabel}>Relação de Marchas (separadas por vírgula)</Text>
@@ -337,7 +383,7 @@ export function SettingsScreen() {
                 <View style={styles.buttonRow}>
                     <Pressable
                         style={[styles.actionButton, styles.saveButton]}
-                        onPress={() => console.log('Saving gear settings', gearSettings)}
+                        onPress={handleSaveGear}
                     >
                         <Text style={styles.buttonText}>✓ Salvar Rel. Marcha</Text>
                     </Pressable>
@@ -353,6 +399,12 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(2, 8, 16, 0.96)',
         borderTopWidth: 1,
         borderTopColor: 'rgba(0, 255, 255, 0.12)',
+    },
+    loadingContainer: {
+        flex: 1,
+        backgroundColor: 'rgba(2, 8, 16, 0.96)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     contentContainer: {
         padding: 16,
