@@ -1,4 +1,5 @@
 import { ChannelBox } from '@/components/ui/channel-box';
+import { GEAR_OPTIONS } from '@/constants/gear-options';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -15,7 +16,7 @@ export function StreetDashboard() {
       setData((prev) => ({
         ...prev,
         speed: Math.max(0, prev.speed + Math.random() * 20 - 5),
-        gear: ['N', 'P', 'R', 'D', 'S'][Math.floor(Math.random() * 5)],
+        gear: GEAR_OPTIONS[Math.floor(Math.random() * GEAR_OPTIONS.length)],
         power: Math.max(0, Math.min(100, prev.power + Math.random() * 30 - 15)),
       }));
     }, 800);
