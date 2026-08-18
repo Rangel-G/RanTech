@@ -1,0 +1,66 @@
+{
+  "expo": {
+    "name": "RanTech_Mobile",
+    "slug": "RanTech_Mobile",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/images/icon.png",
+    "scheme": "rantechmobile",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true
+    },
+    "androidStatusBar": {
+      "hidden": true,
+      "translucent": true,
+      "backgroundColor": "transparent"
+    },
+    "androidNavigationBar": {
+      "visible": "sticky-immersive",
+      "translucent": true
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-navigation-bar",
+        {
+          "visibility": "hidden",
+          "behavior": "inset-touch",
+          "backgroundColor": "#000000"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#000000"
+          }
+        }
+      ]
+    ],
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.RanTech_Mobile"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
