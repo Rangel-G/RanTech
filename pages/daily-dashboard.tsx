@@ -1,39 +1,25 @@
 import { ChannelBox } from '@/components/ui/channel-box';
 import { RpmRamp } from '@/components/ui/rpmMap';
-import { GEAR_OPTIONS } from '@/constants/gear-options';
-import React, { useEffect, useState } from 'react';
+import { useReception } from '@/services/reception';
+import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 export function DailyDashboard() {
-    const [data, setData] = useState({
-        speed: 0,
-        gear: 'N',
-        temp: 0,
-        battery: 13.2,
-        fault: 'OK',
-    });
+
+
+    const data = useReception()
 
     // Simulate data updates
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setData((prev) => ({
-                ...prev,
-                speed: Math.max(0, prev.speed + Math.random() * 20 - 5),
-                temp: Math.max(20, Math.min(120, prev.temp + Math.random() * 4 - 2)),
-                gear: GEAR_OPTIONS[Math.floor(Math.random() * GEAR_OPTIONS.length)],
-                battery: 12.5 + Math.random() * 2,
-            }));
-        }, 800);
-        return () => clearInterval(interval);
-    }, []);
+
 
     return (
         <View style={styles.container}>
             {/* Main Grid Layout replicating HTML structure */}
-            <RpmRamp rpm={4500} rpmMax={8000} />
+            
+            <RpmRamp rpm={data.rpm} rpmMax={data.rpmMax} />
+
             <View style={styles.gridContainer}>
 
-                
 
                 {/* Left Column: Velocidade VSS (Takes full height) */}
                 <View style={styles.leftColumn}>
@@ -62,10 +48,10 @@ export function DailyDashboard() {
                         <View style={styles.cell}>
                             <ChannelBox
                                 label="Temp. Motor"
-                                value={Math.round(data.temp)}
+                                value={Math.round(data.ect)}
                                 unit="°C"
                                 size="small"
-                                theme={data.temp > 95 ? 'warning' : 'default'}
+                                theme={data.ect > 95 ? 'warning' : 'default'}
                             />
                         </View>
                     </View>

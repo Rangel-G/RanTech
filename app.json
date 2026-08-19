@@ -19,6 +19,7 @@
       "backgroundColor": "transparent"
     },
     "androidNavigationBar": {
+      "hidden": true,
       "visible": "sticky-immersive",
       "translucent": true
     },
