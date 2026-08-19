@@ -15,8 +15,10 @@ export function DailyDashboard() {
     return (
         <View style={styles.container}>
             {/* Main Grid Layout replicating HTML structure */}
-            
-            <RpmRamp rpm={data.rpm} rpmMax={data.rpmMax} />
+
+            <View style={styles.rpmContainer}>
+                <RpmRamp rpm={data.rpm} rpmMax={data.rpmMax} />
+            </View>
 
             <View style={styles.gridContainer}>
 
@@ -108,6 +110,10 @@ const styles = StyleSheet.create({
     },
     cell: {
         flex: 1,
+    },
+    rpmContainer: {
+        width: '100%',
+        marginBottom: 16,
     },
 });
 
