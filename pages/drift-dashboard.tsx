@@ -1,4 +1,5 @@
 import { ChannelBox } from '@/components/ui/channel-box';
+import { RpmRamp } from '@/components/ui/rpmMap';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -10,6 +11,14 @@ export function DriftDashboard() {
     tc: false,
     wheelSpin: 'ESTÁVEL',
   });
+
+  const toggleTC = () => {
+    setData((prev) => ({
+      ...prev,
+      tc: !prev.tc,
+    }));
+  };
+
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -31,6 +40,9 @@ export function DriftDashboard() {
   return (
     <View style={styles.container}>
       {/* Top row - 2 columns */}
+
+      <RpmRamp rpm={data.rpm} rpmMax={data.rpmMax} />
+
       <View style={styles.twoColumnRow}>
         <View style={styles.boxWrapper}>
           <ChannelBox
@@ -66,10 +78,12 @@ export function DriftDashboard() {
         <View style={styles.boxWrapper}>
           <ChannelBox
             label="Controle de Tração"
-            value={data.tc ? 'ATIVO' : 'DESATIVADO'}
-            unit="MODO SLIDE"
+            value={data.tc ? 'ATIVO' : 'INATIVO'}
+            unit="STATUS TC"
             size="small"
-            theme="error"
+            theme={data.tc ? 'success' : 'error'}
+            isActive={data.tc}
+            onPress={toggleTC}
           />
         </View>
       </View>

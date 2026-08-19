@@ -19,8 +19,8 @@ export interface ObdSettings {
 export interface LedSettings {
     name: string;
     uuid: string;
-    redlineRpm: string;
-    blinkSpeed: string;
+    redlineRpm: number;
+    blinkSpeed: number;
     colorNormal: string;
     colorRedline: string;
     autoShift: boolean;
@@ -44,8 +44,8 @@ export const DEFAULT_OBD_SETTINGS: ObdSettings = {
 export const DEFAULT_LED_SETTINGS: LedSettings = {
     name: 'LEDDMX-000101',
     uuid: '0000ffe1-0000-1000-8000-00805f9b34fb',
-    redlineRpm: '3000',
-    blinkSpeed: '70',
+    redlineRpm: 3000,
+    blinkSpeed: 70,
     colorNormal: '#0084ff',
     colorRedline: '#ff0000',
     autoShift: true,

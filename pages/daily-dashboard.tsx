@@ -30,6 +30,7 @@ export function DailyDashboard() {
         <View style={styles.container}>
             {/* Main Grid Layout replicating HTML structure */}
             <View style={styles.gridContainer}>
+               
                 {/* Left Column: Velocidade VSS (Takes full height) */}
                 <View style={styles.leftColumn}>
                     <ChannelBox

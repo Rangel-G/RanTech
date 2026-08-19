@@ -1,5 +1,7 @@
 import { ProgressBar } from '@/components/ui/progress-bar';
-import React, { useEffect, useState } from 'react';
+import { DEFAULT_LED_SETTINGS, SettingsStorage } from '@/services/storage/settings-storage';
+import { useFocusEffect } from '@react-navigation/native'; // ou 'expo-router' dependendo da sua estrutura
+import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 export function DataloggerScreen() {
@@ -11,6 +13,27 @@ export function DataloggerScreen() {
         ect: 20,
         ectMax: 120,
     });
+
+    // 1. Estado para guardar o valor de redline do usuário
+    const [redlineRpm, setRedlineRpm] = useState<number>(DEFAULT_LED_SETTINGS.redlineRpm);
+
+    // 2. Recarrega as configurações salvas sempre que a tela ganha foco
+    useFocusEffect(
+        useCallback(() => {
+            async function loadLedSettings() {
+                try {
+                    const ledSettings = await SettingsStorage.getLedSettings();
+                    if (ledSettings?.redlineRpm) {
+                        setRedlineRpm(ledSettings.redlineRpm);
+                    }
+                } catch (error) {
+                    console.error('Erro ao carregar configurações de LED:', error);
+                }
+            }
+
+            loadLedSettings();
+        }, [])
+    );
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -31,15 +54,17 @@ export function DataloggerScreen() {
                 <Text style={styles.subtitle}>Dados de Sensores OBD-II</Text>
             </View>
 
+        
+
             <ProgressBar
                 label="Frequência Interna"
                 value={`${Math.round(telemetry.rpm)} RPM`}
                 percentage={(telemetry.rpm / telemetry.rpmMax) * 100}
-                // Definimos a cor base normal (verde neon)
                 baseColor="#00ff66"
-                // Passamos o aviso crítico. Se for verdadeiro, ignora baseColor e pisca.
-                isWarning={telemetry.rpm > 3000}
+                // 3. Usa o estado atualizado 'redlineRpm' em vez do valor padrão
+                isWarning={telemetry.rpm > redlineRpm}
             />
+
             <ProgressBar
                 label="Pressão de Admissão"
                 value={`${telemetry.map.toFixed(2)} BAR`}
@@ -55,23 +80,7 @@ export function DataloggerScreen() {
             />
 
             {/* Additional metrics grid */}
-            <View style={styles.metricsGrid}>
-                <View style={styles.metricCard}>
-                    <Text style={styles.metricLabel}>RPM Máximo</Text>
-                    <Text style={styles.metricValue}>{Math.round(telemetry.rpm)}</Text>
-                    <Text style={styles.metricUnit}>RPM</Text>
-                </View>
-                <View style={styles.metricCard}>
-                    <Text style={styles.metricLabel}>MAP Pico</Text>
-                    <Text style={styles.metricValue}>{Math.max(0, telemetry.map).toFixed(2)}</Text>
-                    <Text style={styles.metricUnit}>BAR</Text>
-                </View>
-                <View style={styles.metricCard}>
-                    <Text style={styles.metricLabel}>Temp. Máxima</Text>
-                    <Text style={styles.metricValue}>{Math.round(telemetry.ect)}</Text>
-                    <Text style={styles.metricUnit}>°C</Text>
-                </View>
-            </View>
+
 
             {/* Status section */}
             <View style={styles.statusSection}>

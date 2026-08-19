@@ -270,19 +270,30 @@ export function SettingsScreen() {
                         <Text style={styles.fieldLabel}>RPM do Shift Light</Text>
                         <TextInput
                             style={styles.textInput}
-                            value={ledSettings.redlineRpm}
-                            onChangeText={(text) => setLedSettings({ ...ledSettings, redlineRpm: text })}
+                            // Converte o número do estado para string para o TextInput conseguir exibir
+                            value={String(ledSettings.redlineRpm ?? '')}
+                            // Converte o texto digitado para número antes de salvar
+                            onChangeText={(text) => {
+                                const numericValue = text === '' ? 0 : Number(text.replace(/[^0-9]/g, ''));
+                                setLedSettings({ ...ledSettings, redlineRpm: numericValue });
+                            }}
                             placeholder="3000"
                             keyboardType="numeric"
                             placeholderTextColor="rgba(255, 255, 255, 0.3)"
                         />
                     </View>
+
                     <View style={styles.halfField}>
                         <Text style={styles.fieldLabel}>Velocidade do Pisca (ms)</Text>
                         <TextInput
                             style={styles.textInput}
-                            value={ledSettings.blinkSpeed}
-                            onChangeText={(text) => setLedSettings({ ...ledSettings, blinkSpeed: text })}
+                            // Converte o número do estado para string para o TextInput
+                            value={String(ledSettings.blinkSpeed ?? '')}
+                            // Converte o texto digitado para número antes de salvar
+                            onChangeText={(text) => {
+                                const numericValue = text === '' ? 0 : Number(text.replace(/[^0-9]/g, ''));
+                                setLedSettings({ ...ledSettings, blinkSpeed: numericValue });
+                            }}
                             placeholder="70"
                             keyboardType="numeric"
                             placeholderTextColor="rgba(255, 255, 255, 0.3)"
