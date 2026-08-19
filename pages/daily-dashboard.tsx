@@ -1,4 +1,5 @@
 import { ChannelBox } from '@/components/ui/channel-box';
+import { RpmRamp } from '@/components/ui/rpmMap';
 import { GEAR_OPTIONS } from '@/constants/gear-options';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -29,8 +30,11 @@ export function DailyDashboard() {
     return (
         <View style={styles.container}>
             {/* Main Grid Layout replicating HTML structure */}
+            <RpmRamp rpm={4500} rpmMax={8000} />
             <View style={styles.gridContainer}>
-               
+
+                
+
                 {/* Left Column: Velocidade VSS (Takes full height) */}
                 <View style={styles.leftColumn}>
                     <ChannelBox
