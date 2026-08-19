@@ -35,21 +35,23 @@ export function DataloggerScreen() {
                 label="Frequência Interna"
                 value={`${Math.round(telemetry.rpm)} RPM`}
                 percentage={(telemetry.rpm / telemetry.rpmMax) * 100}
-                color="#00ff66"
+                // Definimos a cor base normal (verde neon)
+                baseColor="#00ff66"
+                // Passamos o aviso crítico. Se for verdadeiro, ignora baseColor e pisca.
+                isWarning={telemetry.rpm > 3000}
             />
-
             <ProgressBar
                 label="Pressão de Admissão"
                 value={`${telemetry.map.toFixed(2)} BAR`}
                 percentage={(telemetry.map / telemetry.mapMax) * 100}
-                color="#00fffa"
+                baseColor="#00fffa"
             />
 
             <ProgressBar
                 label="Sensor de Temperatura"
                 value={`${Math.round(telemetry.ect)}°C`}
                 percentage={(telemetry.ect / telemetry.ectMax) * 100}
-                color="#ff9500"
+                baseColor="#ff9500"
             />
 
             {/* Additional metrics grid */}
