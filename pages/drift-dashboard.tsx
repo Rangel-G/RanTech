@@ -1,5 +1,5 @@
 import { ChannelBox } from '@/components/ui/channel-box';
-import { RpmRamp } from '@/components/ui/rpmMap';
+import { RpmRamp } from '@/components/ui/rpmRamp';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
