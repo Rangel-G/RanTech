@@ -1,5 +1,12 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { useReception } from '@/services/reception';
+import React, { useEffect } from 'react';
+import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import Animated, {
+    Easing,
+    useAnimatedProps,
+    useSharedValue,
+    withTiming
+} from 'react-native-reanimated';
 import Svg, {
     ClipPath,
     Defs,
@@ -14,30 +21,43 @@ const AnimatedRect = Animated.createAnimatedComponent(Rect);
 
 interface RpmRampProps {
     rpm: number;
-    rpmMax?: number;
+    rpmMax?: number; // Mantido para compatibilidade, mas ignoramos variações inválidas
     style?: StyleProp<ViewStyle>;
 }
 
-export function RpmRamp({ rpm, rpmMax = 8000, style }: RpmRampProps) {
-    const animatedWidth = useRef(new Animated.Value(0)).current;
+export function RpmRamp({ rpm = 0, style }: RpmRampProps) {
+    const data = useReception(); // Hook para obter dados de telemetria
+
+    // FIXO: Escala fixa de 8000 RPM para evitar disparos se a ECU/Hook enviar rpmMax errado
+    const ABSOLUTE_MAX_RPM = data.rpmMax;
+
+    // Normalização segura: garante que o valor seja numérico e limitado entre 0 e 8000
+    const rawRpm = typeof rpm === 'number' && !isNaN(rpm) ? rpm : 0;
+    const safeRpm = Math.min(Math.max(rawRpm, 0), ABSOLUTE_MAX_RPM);
+
+    // Mapeamento exato de 0 a 1000px na ViewBox
+    // 800 RPM  -> 100px  (10% - Verde)
+    // 3000 RPM -> 375px  (37.5% - Verde)
+    // 6000 RPM -> 750px  (75% - Amarelo/Laranja)
+    // 8000 RPM -> 1000px (100% - Vermelho)
+    const targetWidth = (safeRpm / ABSOLUTE_MAX_RPM) * 1000;
+
+    const animatedWidth = useSharedValue(0);
 
     useEffect(() => {
-        const targetWidth = Math.min(Math.max((rpm / rpmMax) * 1000, 0), 1000);
+        animatedWidth.value = withTiming(targetWidth, {
+            duration: 150, // Resposta mais rápida para telemetria
+            easing: Easing.linear,
+        });
+    }, [targetWidth]);
 
-        Animated.timing(animatedWidth, {
-            toValue: targetWidth,
-            duration: 350,
-            useNativeDriver: false,
-        }).start();
-    }, [rpm, rpmMax]);
-
-    const widthInterpolation = animatedWidth.interpolate({
-        inputRange: [0, 1000],
-        outputRange: ['0', '1000']
+    const animatedRectProps = useAnimatedProps(() => {
+        return {
+            width: animatedWidth.value,
+        };
     });
 
     return (
-        /* Mesclamos o styles.container interno com a prop style recebida */
         <View style={[styles.container, style]}>
             <View style={styles.svgContainer}>
                 <Svg viewBox="0 0 1000 100" preserveAspectRatio="none" style={styles.svg}>
@@ -58,28 +78,28 @@ export function RpmRamp({ rpm, rpmMax = 8000, style }: RpmRampProps) {
                         </ClipPath>
                     </Defs>
 
-                    {/* Fundo Escuro */}
+                    {/* Fundo Escuro da Rampa */}
                     <Path
                         d="M 0,100 L 0,60 L 400,60 Q 650,60 1000,5 L 1000,100 Z"
                         fill="#252528"
                     />
 
-                    {/* Retângulo Animado com Gradiente */}
+                    {/* Barra Animada */}
                     <G clipPath="url(#rampShapeClip)">
                         <AnimatedRect
                             x="0"
                             y="0"
                             height="100"
                             fill="url(#fuelTechRampGrad)"
-                            width={widthInterpolation}
+                            animatedProps={animatedRectProps}
                         />
                     </G>
                 </Svg>
             </View>
 
-            {/* Texto Sobreposto Alinhado dinamicamente */}
+            {/* Valor de RPM no Texto */}
             <View style={styles.textOverlay}>
-                <Text style={styles.rpmVal}>{Math.round(rpm)}</Text>
+                <Text style={styles.rpmVal}>{Math.round(safeRpm)}</Text>
                 <Text style={styles.rpmUnit}>RPM</Text>
             </View>
         </View>
@@ -88,10 +108,10 @@ export function RpmRamp({ rpm, rpmMax = 8000, style }: RpmRampProps) {
 
 const styles = StyleSheet.create({
     container: {
-        width: '100%', // Preenche a largura por padrão
+        width: '100%',
         height: 80,
         position: 'relative',
-        marginBottom: 12, // Margem inferior padrão
+        marginBottom: 12,
     },
     svgContainer: {
         width: '100%',
@@ -102,9 +122,9 @@ const styles = StyleSheet.create({
         height: '100%',
     },
     textOverlay: {
-        position: 'absolute', // Garante que o texto fique por cima do SVG
+        position: 'absolute',
         top: 0,
-        left: 16, // Fixa uma margem esquerda responsiva
+        left: 16,
         bottom: 25,
         flexDirection: 'row',
         alignItems: 'flex-end',

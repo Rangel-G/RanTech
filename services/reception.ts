@@ -17,22 +17,32 @@ export interface ReceptionData {
     fault: string;     // Diagnóstico ECU
 }
 
+// Escala máxima de limite do conta-giros do painel (ex: 8000 RPM)
+const ENGINE_MAX_RPM = 8000;
+
 const INITIAL: ReceptionData = {
-    rpm: 0, rpmMax: 0, speed: 0, gear: 'N',
-    ect: 20, map: 0, turbo: 0, battery: 13.2,
-    power: 0, tc: true, wheelSpin: 'ESTÁVEL', fault: 'OK',
+    rpm: 0,
+    rpmMax: ENGINE_MAX_RPM, // FIX: Inicia com o limite real do painel (8000 RPM)
+    speed: 0,
+    gear: 'N',
+    ect: 20,
+    map: 0,
+    turbo: 0,
+    battery: 13.2,
+    power: 0,
+    tc: true,
+    wheelSpin: 'ESTÁVEL',
+    fault: 'OK',
 };
 
 // ─── PONTO DE TROCA ───────────────────────────────────────────────────────────
-// Para dados reais: substitua o corpo desta função pelo parsing do OBD2/BLE.
-// A assinatura deve permanecer: (prev: ReceptionData) => ReceptionData
 function tick(prev: ReceptionData): ReceptionData {
-    const rpm = Math.max(0, Math.min(8000, prev.rpm + Math.random() * 400 - 100));
+    const rpm = Math.max(0, Math.min(ENGINE_MAX_RPM, prev.rpm + Math.random() * 400 - 100));
     const speed = Math.max(0, prev.speed + Math.random() * 20 - 5);
 
     return {
         rpm,
-        rpmMax: Math.max(prev.rpmMax, rpm),
+        rpmMax: ENGINE_MAX_RPM, // FIX: Mantém o limite fixo do instrumento em 8000 RPM
         speed,
         gear: GEAR_OPTIONS[Math.floor(Math.random() * GEAR_OPTIONS.length)],
         ect: Math.max(20, Math.min(120, prev.ect + Math.random() * 4 - 2)),
