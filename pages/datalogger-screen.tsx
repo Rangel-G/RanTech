@@ -1,18 +1,18 @@
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { useReception } from '@/services/reception';
 import { DEFAULT_LED_SETTINGS, SettingsStorage } from '@/services/storage/settings-storage';
-import { useFocusEffect } from '@react-navigation/native'; // ou 'expo-router' dependendo da sua estrutura
+import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+// Cor do LED quando estiver desligado / sem comunicação
+const LED_OFF_COLOR = 'rgba(255, 255, 255, 0.15)';
+
 export function DataloggerScreen() {
+    const { data } = useReception();
 
-    const { data } = useReception()
-
-    // 1. Estado para guardar o valor de redline do usuário
     const [redlineRpm, setRedlineRpm] = useState<number>(DEFAULT_LED_SETTINGS.redlineRpm);
 
-    // 2. Recarrega as configurações salvas sempre que a tela ganha foco
     useFocusEffect(
         useCallback(() => {
             async function loadLedSettings() {
@@ -30,7 +30,10 @@ export function DataloggerScreen() {
         }, [])
     );
 
-
+    // ─── Condições dinâmicas de conexão/status ──────────────────────────────
+    const isObdConnected = data.fault === 'OK';
+    const isReceivingData = data.rpm >= 0 && isObdConnected;
+    const isLoggingActive = isReceivingData; // Pode trocar por uma flag real de gravação caso exista
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -44,7 +47,6 @@ export function DataloggerScreen() {
                 value={`${Math.round(data.rpm)} RPM`}
                 percentage={(data.rpm / data.rpmMax) * 100}
                 baseColor="#00ff66"
-                // 3. Usa o estado atualizado 'redlineRpm' em vez do valor padrão
                 isWarning={data.rpm > redlineRpm}
             />
 
@@ -62,23 +64,56 @@ export function DataloggerScreen() {
                 baseColor="#ff9500"
             />
 
-            {/* Additional metrics grid */}
-
-
             {/* Status section */}
             <View style={styles.statusSection}>
                 <Text style={styles.statusTitle}>STATUS DE CONEXÃO</Text>
+
+                {/* OBD Conectado */}
                 <View style={styles.statusItem}>
-                    <View style={[styles.statusDot, { backgroundColor: '#00ff66' }]} />
-                    <Text style={styles.statusText}>OBD Conectado</Text>
+                    <View
+                        style={[
+                            styles.statusDot,
+                            {
+                                backgroundColor: isObdConnected ? '#00ff66' : LED_OFF_COLOR,
+                                shadowColor: isObdConnected ? '#00ff66' : 'transparent',
+                            }
+                        ]}
+                    />
+                    <Text style={[styles.statusText, !isObdConnected && styles.statusTextDisabled]}>
+                        OBD Conectado
+                    </Text>
                 </View>
+
+                {/* Recebendo Dados */}
                 <View style={styles.statusItem}>
-                    <View style={[styles.statusDot, { backgroundColor: '#00ffff' }]} />
-                    <Text style={styles.statusText}>Recebendo Dados</Text>
+                    <View
+                        style={[
+                            styles.statusDot,
+                            {
+                                backgroundColor: isReceivingData ? '#00ffff' : LED_OFF_COLOR,
+                                shadowColor: isReceivingData ? '#00ffff' : 'transparent',
+                            }
+                        ]}
+                    />
+                    <Text style={[styles.statusText, !isReceivingData && styles.statusTextDisabled]}>
+                        Recebendo Dados
+                    </Text>
                 </View>
+
+                {/* Logging Ativo */}
                 <View style={styles.statusItem}>
-                    <View style={[styles.statusDot, { backgroundColor: '#ffd700' }]} />
-                    <Text style={styles.statusText}>Logging Ativo</Text>
+                    <View
+                        style={[
+                            styles.statusDot,
+                            {
+                                backgroundColor: isLoggingActive ? '#ffd700' : LED_OFF_COLOR,
+                                shadowColor: isLoggingActive ? '#ffd700' : 'transparent',
+                            }
+                        ]}
+                    />
+                    <Text style={[styles.statusText, !isLoggingActive && styles.statusTextDisabled]}>
+                        Logging Ativo
+                    </Text>
                 </View>
             </View>
         </ScrollView>
@@ -115,40 +150,6 @@ const styles = StyleSheet.create({
         color: '#8be8ff',
         letterSpacing: 0.5,
     },
-    metricsGrid: {
-        flexDirection: 'row',
-        gap: 12,
-        marginVertical: 20,
-    },
-    metricCard: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 100, 150, 0.15)',
-        borderWidth: 1,
-        borderColor: 'rgba(0, 255, 255, 0.2)',
-        borderRadius: 8,
-        paddingVertical: 12,
-        paddingHorizontal: 10,
-        alignItems: 'center',
-    },
-    metricLabel: {
-        fontSize: 11,
-        color: '#8be8ff',
-        fontWeight: '600',
-        letterSpacing: 0.3,
-        textTransform: 'uppercase',
-        marginBottom: 4,
-    },
-    metricValue: {
-        fontSize: 20,
-        fontWeight: '900',
-        color: '#ffffff',
-        marginBottom: 2,
-    },
-    metricUnit: {
-        fontSize: 10,
-        color: '#cccccc',
-        letterSpacing: 0.5,
-    },
     statusSection: {
         marginTop: 24,
         paddingTop: 16,
@@ -173,14 +174,17 @@ const styles = StyleSheet.create({
         height: 10,
         borderRadius: 5,
         marginRight: 12,
-        shadowOpacity: 0.5,
-        shadowRadius: 3,
-        elevation: 2,
+        shadowOpacity: 0.8,
+        shadowRadius: 4,
+        elevation: 3,
     },
     statusText: {
         fontSize: 13,
         color: '#8be8ff',
         fontWeight: '500',
         letterSpacing: 0.3,
+    },
+    statusTextDisabled: {
+        color: 'rgba(255, 255, 255, 0.3)', // Texto esmaecido quando desconectado
     },
 });

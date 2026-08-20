@@ -7,7 +7,7 @@ import { StyleSheet, View } from 'react-native';
 export function DailyDashboard() {
 
 
-    const {data} = useReception()
+    const { data } = useReception()
 
     // Simulate data updates
 
@@ -26,7 +26,7 @@ export function DailyDashboard() {
                 {/* Left Column: Velocidade VSS (Takes full height) */}
                 <View style={styles.leftColumn}>
                     <ChannelBox
-                        label="Velocidade VSS"
+                        label="Velocidade"
                         value={Math.round(data.speed)}
                         unit="KM/H"
                         size="large"

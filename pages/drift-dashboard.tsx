@@ -5,7 +5,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 export function DriftDashboard() {
-  const { data, toggleTc } = useReception(100);
+  const { data, toggleTc } = useReception();
 
   return (
     <View style={styles.container}>

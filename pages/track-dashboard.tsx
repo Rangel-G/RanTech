@@ -1,32 +1,11 @@
 import { ChannelBox } from '@/components/ui/channel-box';
-import { GEAR_OPTIONS } from '@/constants/gear-options';
-import React, { useEffect, useState } from 'react';
+import { useReception } from '@/services/reception';
+import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 export function TrackDashboard() {
-    const [data, setData] = useState({
-        rpm: 0,
-        temp: 0,
-        map: 0,
-        gear: 'N',
-        speed: 0,
-        power: 0,
-    });
 
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setData((prev) => ({
-                ...prev,
-                rpm: Math.max(0, Math.min(8000, prev.rpm + Math.random() * 400 - 100)),
-                temp: Math.max(20, Math.min(120, prev.temp + Math.random() * 4 - 2)),
-                map: Math.max(0, Math.min(1.5, prev.map + Math.random() * 0.2 - 0.1)),
-                gear: GEAR_OPTIONS[Math.floor(Math.random() * GEAR_OPTIONS.length)],
-                speed: Math.max(0, prev.speed + Math.random() * 20 - 5),
-                power: Math.max(0, Math.min(100, prev.power + Math.random() * 30 - 15)),
-            }));
-        }, 800);
-        return () => clearInterval(interval);
-    }, []);
+const {data} = useReception();
 
     return (
         <View style={styles.container}>
@@ -46,10 +25,10 @@ export function TrackDashboard() {
                 <View style={styles.boxWrapper}>
                     <ChannelBox
                         label="Temp. Motor"
-                        value={Math.round(data.temp)}
+                        value={Math.round(data.ect)}
                         unit="°C"
                         size="small"
-                        theme={data.temp > 95 ? 'warning' : 'default'}
+                        theme={data.ect > 95 ? 'warning' : 'default'}
                     />
                 </View>
                 <View style={styles.boxWrapper}>

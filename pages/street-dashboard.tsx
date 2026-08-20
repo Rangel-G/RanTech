@@ -1,34 +1,11 @@
 import { ChannelBox } from '@/components/ui/channel-box';
-import { GEAR_OPTIONS } from '@/constants/gear-options';
-import React, { useEffect, useState } from 'react';
+import { useReception } from '@/services/reception';
+import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 export function StreetDashboard() {
-  const [data, setData] = useState({
-    speed: 0,
-    gear: 'N',
-    tc: true,
-    power: 0,
-  });
 
-  const toggleTC = () => {
-    setData((prev) => ({
-      ...prev,
-      tc: !prev.tc,
-    }));
-  };
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setData((prev) => ({
-        ...prev, // Preserva o estado de tc atualizado pelo usuário
-        speed: Math.max(0, prev.speed + Math.random() * 20 - 5),
-        gear: GEAR_OPTIONS[Math.floor(Math.random() * GEAR_OPTIONS.length)],
-        power: Math.max(0, Math.min(100, prev.power + Math.random() * 30 - 15)),
-      }));
-    }, 800);
-    return () => clearInterval(interval);
-  }, []);
+  const { data, toggleTc } = useReception()
 
   return (
     <View style={styles.container}>
@@ -76,7 +53,7 @@ export function StreetDashboard() {
                 size="small"
                 theme={data.tc ? 'success' : 'error'}
                 isActive={data.tc}
-                onPress={toggleTC}
+                onPress={toggleTc}
               />
             </View>
           </View>

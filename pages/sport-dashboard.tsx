@@ -1,26 +1,14 @@
 import { GaugeCard } from '@/components/ui/gauge-card';
-import { DEFAULT_GEAR } from '@/constants/gear-options';
 import { BORDER_RADIUS, COLORS, COMPONENT_STYLES, SHADOWS, SPACING, TYPOGRAPHY } from '@/constants/global-styles';
-import React, { useEffect, useState } from 'react';
+import { useReception } from '@/services/reception';
+import React from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
 export function SportDashboard() {
-    const [rpm, setRpm] = useState(2500);
-    const [speed, setSpeed] = useState(85);
-    const [turbo, setTurbo] = useState(0.8);
-    const [gear, setGear] = useState(DEFAULT_GEAR);
+    const { data } = useReception()
 
-    // Simulate data updates
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setRpm((prev) => Math.min(prev + Math.random() * 200 - 50, 8000));
-            setSpeed((prev) => Math.min(prev + Math.random() * 10 - 3, 240));
-            setTurbo((prev) => Math.max(Math.min(prev + Math.random() * 0.2 - 0.1, 2), 0));
-        }, 500);
-        return () => clearInterval(interval);
-    }, []);
 
 
     return (
@@ -30,10 +18,10 @@ export function SportDashboard() {
                 <View style={{ position: 'relative', width: 500, height: 500 }}>
                     <GaugeCard
                         label="RPM"
-                        value={7200}
-                        max={8000}
+                        value={data.rpm}
+                        max={data.rpmMax}
                         unit="RPM"
-                        size="smallMedium"
+                        size="medium"
                         style={{ position: 'absolute', top: 0, left: 60 }}
                     />
                 </View>
@@ -43,7 +31,7 @@ export function SportDashboard() {
                     <View style={styles.gaugePair}>
                         <GaugeCard
                             label="Velocidade"
-                            value={Math.round(speed)}
+                            value={Math.round(data.speed)}
                             max={240}
                             unit="KM/H"
                             size="small"
@@ -52,7 +40,7 @@ export function SportDashboard() {
                         />
                         <GaugeCard
                             label="Pressão Turbo"
-                            value={Math.round(turbo * 10) / 10}
+                            value={Math.round(data.turbo * 10) / 10}
                             max={2}
                             unit="BAR"
                             size="small"
@@ -61,24 +49,7 @@ export function SportDashboard() {
                         />
                     </View>
 
-                    {/* Digital Display - Gear & Speed */}
-                    <View style={styles.digitalDisplay}>
-                        <View style={styles.displayRow}>
-                            <Text style={styles.displayLabel}>Marcha</Text>
-                            <Text style={styles.displayValue}>{gear}</Text>
-                        </View>
-                        <View style={styles.displayRow}>
-                            <Text style={styles.displayLabel}>Velocidade</Text>
-                            <Text style={styles.displayValue}>{Math.round(speed)}</Text>
-                        </View>
-
-                        {/* Shift Light Indicator */}
-                        {rpm > 6500 && (
-                            <View style={styles.shiftLight}>
-                                <Text style={styles.shiftLightText}>⚠️ SHIFT!</Text>
-                            </View>
-                        )}
-                    </View>
+                   
                 </View>
             </View>
 
