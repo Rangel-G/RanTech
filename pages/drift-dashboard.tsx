@@ -1,46 +1,14 @@
 import { ChannelBox } from '@/components/ui/channel-box';
 import { RpmRamp } from '@/components/ui/rpmRamp';
-import React, { useEffect, useState } from 'react';
+import { useReception } from '@/services/reception';
+import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 export function DriftDashboard() {
-  const [data, setData] = useState({
-    rpm: 0,
-    rpmMax: 0,
-    speed: 0,
-    tc: false,
-    wheelSpin: 'ESTÁVEL',
-  });
-
-  const toggleTC = () => {
-    setData((prev) => ({
-      ...prev,
-      tc: !prev.tc,
-    }));
-  };
-
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const newRpm = Math.max(0, Math.min(8000, Math.random() * 7000));
-      setData((prev) => ({
-        ...prev,
-        rpm: newRpm,
-        rpmMax: Math.max(prev.rpmMax, newRpm),
-        speed: Math.max(0, prev.speed + Math.random() * 20 - 5),
-        wheelSpin:
-          Math.abs(newRpm - prev.speed * 70) > 1500
-            ? 'PATINANDO'
-            : 'ESTÁVEL',
-      }));
-    }, 800);
-    return () => clearInterval(interval);
-  }, []);
+  const { data, toggleTc } = useReception(100);
 
   return (
     <View style={styles.container}>
-      {/* Top row - 2 columns */}
-
       <RpmRamp rpm={data.rpm} rpmMax={data.rpmMax} />
 
       <View style={styles.twoColumnRow}>
@@ -64,7 +32,6 @@ export function DriftDashboard() {
         </View>
       </View>
 
-      {/* Middle row - 2 columns */}
       <View style={styles.twoColumnRow}>
         <View style={styles.boxWrapper}>
           <ChannelBox
@@ -83,12 +50,11 @@ export function DriftDashboard() {
             size="small"
             theme={data.tc ? 'success' : 'error'}
             isActive={data.tc}
-            onPress={toggleTC}
+            onPress={toggleTc}
           />
         </View>
       </View>
 
-      {/* Bottom row - Full width */}
       <View style={styles.fullWidthBox}>
         <ChannelBox
           label="Delta de Patinagem"

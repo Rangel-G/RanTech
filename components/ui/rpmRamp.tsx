@@ -1,10 +1,14 @@
 import { useReception } from '@/services/reception';
-import React, { useEffect } from 'react';
+import { Audio } from 'expo-av';
+import React, { useEffect, useRef } from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Animated, {
     Easing,
     useAnimatedProps,
+    useAnimatedStyle,
     useSharedValue,
+    withRepeat,
+    withSequence,
     withTiming
 } from 'react-native-reanimated';
 import Svg, {
@@ -21,41 +25,103 @@ const AnimatedRect = Animated.createAnimatedComponent(Rect);
 
 interface RpmRampProps {
     rpm: number;
-    rpmMax?: number; // Mantido para compatibilidade, mas ignoramos variações inválidas
+    rpmMax?: number;
     style?: StyleProp<ViewStyle>;
 }
 
 export function RpmRamp({ rpm = 0, style }: RpmRampProps) {
-    const data = useReception(); // Hook para obter dados de telemetria
+    const data = useReception();
 
-    // FIXO: Escala fixa de 8000 RPM para evitar disparos se a ECU/Hook enviar rpmMax errado
-    const ABSOLUTE_MAX_RPM = data.rpmMax;
+    const ABSOLUTE_MAX_RPM = data.rpmMax || 8000;
 
-    // Normalização segura: garante que o valor seja numérico e limitado entre 0 e 8000
     const rawRpm = typeof rpm === 'number' && !isNaN(rpm) ? rpm : 0;
     const safeRpm = Math.min(Math.max(rawRpm, 0), ABSOLUTE_MAX_RPM);
 
-    // Mapeamento exato de 0 a 1000px na ViewBox
-    // 800 RPM  -> 100px  (10% - Verde)
-    // 3000 RPM -> 375px  (37.5% - Verde)
-    // 6000 RPM -> 750px  (75% - Amarelo/Laranja)
-    // 8000 RPM -> 1000px (100% - Vermelho)
     const targetWidth = (safeRpm / ABSOLUTE_MAX_RPM) * 1000;
 
     const animatedWidth = useSharedValue(0);
+    const alertOpacity = useSharedValue(0);
+    const alertScale = useSharedValue(1);
 
+    const isWarningThreshold = safeRpm >= ABSOLUTE_MAX_RPM * 0.55;
+
+    // --- RECURSO DE ÁUDIO ---
+    const soundRef = useRef<Audio.Sound | null>(null);
+    const wasInWarningRef = useRef(false);
+
+    // Carrega o áudio em memória ao montar o componente
+    useEffect(() => {
+        async function loadSound() {
+            try {
+                // Configure os áudios para tocar mesmo no modo silencioso do iOS
+                await Audio.setAudioModeAsync({
+                    playsInSilentModeIOS: true,
+                });
+
+                // Carrega o arquivo da sua pasta assets
+                const { sound } = await Audio.Sound.createAsync(
+                    require('@/assets/sounds/shift-beep.mp3')
+                );
+                soundRef.current = sound;
+            } catch (error) {
+                console.log('Erro ao carregar o som de alerta:', error);
+            }
+        }
+
+        loadSound();
+
+        // Descarrega o som da memória quando o componente for desmontado
+        return () => {
+            soundRef.current?.unloadAsync();
+        };
+    }, []);
+
+    // Controle Visual e Sonoro
     useEffect(() => {
         animatedWidth.value = withTiming(targetWidth, {
-            duration: 150, // Resposta mais rápida para telemetria
+            duration: 150,
             easing: Easing.linear,
         });
-    }, [targetWidth]);
 
-    const animatedRectProps = useAnimatedProps(() => {
-        return {
-            width: animatedWidth.value,
-        };
-    });
+        if (isWarningThreshold) {
+            // Toca o som apenas no MOMENTO EXATO em que cruza a barreira (evita tocar em loop)
+            if (!wasInWarningRef.current && soundRef.current) {
+                soundRef.current.replayAsync();
+                wasInWarningRef.current = true;
+            }
+
+            // Animação visual piscando
+            alertOpacity.value = withRepeat(
+                withSequence(
+                    withTiming(1, { duration: 100 }),
+                    withTiming(0.2, { duration: 100 })
+                ),
+                -1,
+                true
+            );
+            alertScale.value = withRepeat(
+                withSequence(
+                    withTiming(1.1, { duration: 100 }),
+                    withTiming(1, { duration: 100 })
+                ),
+                -1,
+                true
+            );
+        } else {
+            wasInWarningRef.current = false;
+            alertOpacity.value = withTiming(0, { duration: 100 });
+            alertScale.value = withTiming(1, { duration: 100 });
+        }
+    }, [targetWidth, isWarningThreshold]);
+
+    const animatedRectProps = useAnimatedProps(() => ({
+        width: animatedWidth.value,
+    }));
+
+    const alertStyle = useAnimatedStyle(() => ({
+        opacity: alertOpacity.value,
+        transform: [{ scale: alertScale.value }],
+    }));
 
     return (
         <View style={[styles.container, style]}>
@@ -68,8 +134,8 @@ export function RpmRamp({ rpm = 0, style }: RpmRampProps) {
                             gradientUnits="userSpaceOnUse"
                         >
                             <Stop offset="0%" stopColor="#00ff66" />
-                            <Stop offset="55%" stopColor="#00ff66" />
-                            <Stop offset="75%" stopColor="#ffcc00" />
+                            <Stop offset="35%" stopColor="#00ff66" />
+                            <Stop offset="55%" stopColor="#ffcc00" />
                             <Stop offset="100%" stopColor="#ff3b30" />
                         </LinearGradient>
 
@@ -78,13 +144,11 @@ export function RpmRamp({ rpm = 0, style }: RpmRampProps) {
                         </ClipPath>
                     </Defs>
 
-                    {/* Fundo Escuro da Rampa */}
                     <Path
                         d="M 0,100 L 0,60 L 400,60 Q 650,60 1000,5 L 1000,100 Z"
                         fill="#252528"
                     />
 
-                    {/* Barra Animada */}
                     <G clipPath="url(#rampShapeClip)">
                         <AnimatedRect
                             x="0"
@@ -97,11 +161,14 @@ export function RpmRamp({ rpm = 0, style }: RpmRampProps) {
                 </Svg>
             </View>
 
-            {/* Valor de RPM no Texto */}
             <View style={styles.textOverlay}>
                 <Text style={styles.rpmVal}>{Math.round(safeRpm)}</Text>
                 <Text style={styles.rpmUnit}>RPM</Text>
             </View>
+
+            <Animated.View style={[styles.warningContainer, alertStyle]} pointerEvents="none">
+                <Text style={styles.warningText}>SHIFT</Text>
+            </Animated.View>
         </View>
     );
 }
@@ -147,5 +214,24 @@ const styles = StyleSheet.create({
         fontStyle: 'italic',
         marginLeft: 6,
         marginBottom: 6,
-    }
+    },
+    warningContainer: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    warningText: {
+        color: '#ffcc00',
+        fontSize: 42,
+        fontWeight: '900',
+        fontStyle: 'italic',
+        letterSpacing: 4,
+        textShadowColor: 'rgba(0, 0, 0, 0.9)',
+        textShadowOffset: { width: 3, height: 3 },
+        textShadowRadius: 6,
+    },
 });

@@ -1,18 +1,13 @@
 import { ProgressBar } from '@/components/ui/progress-bar';
+import { useReception } from '@/services/reception';
 import { DEFAULT_LED_SETTINGS, SettingsStorage } from '@/services/storage/settings-storage';
 import { useFocusEffect } from '@react-navigation/native'; // ou 'expo-router' dependendo da sua estrutura
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 export function DataloggerScreen() {
-    const [telemetry, setTelemetry] = useState({
-        rpm: 0,
-        rpmMax: 8000,
-        map: 0,
-        mapMax: 2,
-        ect: 20,
-        ectMax: 120,
-    });
+
+    const { data } = useReception()
 
     // 1. Estado para guardar o valor de redline do usuário
     const [redlineRpm, setRedlineRpm] = useState<number>(DEFAULT_LED_SETTINGS.redlineRpm);
@@ -35,17 +30,7 @@ export function DataloggerScreen() {
         }, [])
     );
 
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setTelemetry((prev) => ({
-                ...prev,
-                rpm: Math.max(0, Math.min(8000, prev.rpm + Math.random() * 400 - 100)),
-                map: Math.max(0, Math.min(2, prev.map + Math.random() * 0.2 - 0.1)),
-                ect: Math.max(20, Math.min(120, prev.ect + Math.random() * 4 - 2)),
-            }));
-        }, 500);
-        return () => clearInterval(interval);
-    }, []);
+
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -54,28 +39,26 @@ export function DataloggerScreen() {
                 <Text style={styles.subtitle}>Dados de Sensores OBD-II</Text>
             </View>
 
-        
-
             <ProgressBar
                 label="Frequência Interna"
-                value={`${Math.round(telemetry.rpm)} RPM`}
-                percentage={(telemetry.rpm / telemetry.rpmMax) * 100}
+                value={`${Math.round(data.rpm)} RPM`}
+                percentage={(data.rpm / data.rpmMax) * 100}
                 baseColor="#00ff66"
                 // 3. Usa o estado atualizado 'redlineRpm' em vez do valor padrão
-                isWarning={telemetry.rpm > redlineRpm}
+                isWarning={data.rpm > redlineRpm}
             />
 
             <ProgressBar
                 label="Pressão de Admissão"
-                value={`${telemetry.map.toFixed(2)} BAR`}
-                percentage={(telemetry.map / telemetry.mapMax) * 100}
+                value={`${data.map.toFixed(2)} BAR`}
+                percentage={(data.map / data.mapMax) * 100}
                 baseColor="#00fffa"
             />
 
             <ProgressBar
                 label="Sensor de Temperatura"
-                value={`${Math.round(telemetry.ect)}°C`}
-                percentage={(telemetry.ect / telemetry.ectMax) * 100}
+                value={`${Math.round(data.ect)}°C`}
+                percentage={(data.ect / data.ectMax) * 100}
                 baseColor="#ff9500"
             />
 
