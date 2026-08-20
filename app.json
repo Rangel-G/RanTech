@@ -7,6 +7,10 @@
     "scheme": "rantechmobile",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#000000",
+      "resizeMode": "contain"
+    },
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -16,7 +20,7 @@
     "androidStatusBar": {
       "hidden": true,
       "translucent": true,
-      "backgroundColor": "transparent"
+      "backgroundColor": "#00000000"
     },
     "androidNavigationBar": {
       "hidden": true,
@@ -47,9 +51,8 @@
       [
         "expo-splash-screen",
         {
-          "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#000000",
           "dark": {
             "backgroundColor": "#000000"
           }
