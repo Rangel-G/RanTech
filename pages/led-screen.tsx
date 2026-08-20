@@ -1,5 +1,5 @@
-// app/led.tsx
-import React, { useState } from 'react';
+import { useLed } from '@/contexts/led-context';
+import React from 'react';
 import {
     ActivityIndicator,
     SafeAreaView,
@@ -10,22 +10,22 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { useBleLed } from '../hooks/use-ble-led';
 
 const PRESET_COLORS = [
     { name: 'Vermelho', r: 255, g: 0, b: 0, hex: '#FF0000' },
     { name: 'Verde', r: 0, g: 255, b: 0, hex: '#00FF00' },
     { name: 'Azul', r: 0, g: 0, b: 255, hex: '#0000FF' },
     { name: 'Amarelo', r: 255, g: 255, b: 0, hex: '#FFFF00' },
-    { name: 'Ciano', r: 0, g: 255, b: 255, hex: '#00FFFF' },
+    { name: 'Ciano', r: 0, g: 255, b: 0, hex: '#00FFFF' },
     { name: 'Roxo', r: 128, g: 0, b: 128, hex: '#800080' },
     { name: 'Branco', r: 255, g: 255, b: 255, hex: '#FFFFFF' },
     { name: 'Desligar', r: 0, g: 0, b: 0, hex: '#222222' },
 ];
 
 export default function LedScreen() {
-    const [deviceName, setDeviceName] = useState('BT05'); // Altere para o nome do seu módulo (ex: HM-10, MLT-BT05)
     const {
+        ledSettings,
+        updateLedSettings,
         isScanning,
         isConnected,
         connectedDevice,
@@ -33,27 +33,20 @@ export default function LedScreen() {
         connectToLed,
         disconnect,
         setColor,
-    } = useBleLed();
-
-    const handleConnect = () => {
-        if (deviceName.trim()) {
-            connectToLed(deviceName.trim());
-        }
-    };
+    } = useLed();
 
     return (
         <SafeAreaView style={styles.container}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <Text style={styles.title}>Painel de Teste — Fita LED</Text>
 
-                {/* Card de Configuração e Conexão */}
                 <View style={styles.card}>
                     <Text style={styles.label}>Nome do Dispositivo BLE:</Text>
                     <TextInput
                         style={styles.input}
-                        value={deviceName}
-                        onChangeText={setDeviceName}
-                        placeholder="Ex: HM-10, BT05, LED_STRIP"
+                        value={ledSettings.name}
+                        onChangeText={(text) => updateLedSettings({ ...ledSettings, name: text })}
+                        placeholder="Ex: HM-10, BT05, LEDDMX-000101"
                         placeholderTextColor="#666"
                         editable={!isConnected && !isScanning}
                     />
@@ -61,7 +54,7 @@ export default function LedScreen() {
                     {!isConnected ? (
                         <TouchableOpacity
                             style={[styles.button, styles.connectButton]}
-                            onPress={handleConnect}
+                            onPress={() => connectToLed()}
                             disabled={isScanning}
                         >
                             {isScanning ? (
@@ -80,7 +73,6 @@ export default function LedScreen() {
                     )}
                 </View>
 
-                {/* Status da Conexão */}
                 <View style={styles.statusContainer}>
                     <Text style={styles.statusText}>
                         Status:{' '}
@@ -94,7 +86,7 @@ export default function LedScreen() {
                             }
                         >
                             {isConnected
-                                ? `Conectado (${connectedDevice?.name || 'LED'})`
+                                ? `Conectado (${connectedDevice?.name || ledSettings.name})`
                                 : isScanning
                                     ? 'Buscando...'
                                     : 'Desconectado'}
@@ -104,7 +96,6 @@ export default function LedScreen() {
                     {error && <Text style={styles.errorText}>{error}</Text>}
                 </View>
 
-                {/* Controles de Cor */}
                 {isConnected && (
                     <View style={styles.card}>
                         <Text style={styles.label}>Cores Rápidas:</Text>
@@ -118,7 +109,7 @@ export default function LedScreen() {
                                     <Text
                                         style={[
                                             styles.colorButtonText,
-                                            color.hex === '#FFFFFF' || color.hex === '#00FF00' || color.hex === '#FFFF00' || color.hex === '#00FFFF'
+                                            ['#FFFFFF', '#00FF00', '#FFFF00', '#00FFFF'].includes(color.hex)
                                                 ? { color: '#000' }
                                                 : { color: '#FFF' },
                                         ]}
@@ -138,7 +129,9 @@ export default function LedScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#121212',
+        backgroundColor: 'rgba(2, 8, 16, 0.96)',
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(0, 255, 255, 0.12)',
     },
     scrollContent: {
         padding: 20,

@@ -7,6 +7,7 @@ import { Platform } from 'react-native';
 import 'react-native-reanimated';
 
 import { DashboardProfileProvider } from '@/contexts/dashboard-profile-context';
+import { LedProvider } from '@/contexts/led-context';
 import { TelemetryProvider } from '@/contexts/telemetryContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -26,15 +27,17 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <TelemetryProvider>
-        <DashboardProfileProvider>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-          </Stack>
-          <StatusBar hidden translucent backgroundColor="transparent" />
-        </DashboardProfileProvider>
-      </TelemetryProvider>
+      <LedProvider>
+        <TelemetryProvider>
+          <DashboardProfileProvider>
+            <Stack>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+            </Stack>
+            <StatusBar hidden translucent backgroundColor="transparent" />
+          </DashboardProfileProvider>
+        </TelemetryProvider>
+      </LedProvider>
     </ThemeProvider>
   );
 }

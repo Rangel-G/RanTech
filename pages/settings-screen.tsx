@@ -1,4 +1,5 @@
 import { ExpandablePanel } from '@/components/ui/expandable-panel';
+import { useLed } from '@/contexts/led-context';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -13,10 +14,8 @@ import {
 } from 'react-native';
 import {
     DEFAULT_GEAR_SETTINGS,
-    DEFAULT_LED_SETTINGS,
     DEFAULT_OBD_SETTINGS,
     GearSettings,
-    LedSettings,
     ObdSettings,
     SettingsStorage,
 } from '../services/storage/settings-storage';
@@ -45,25 +44,31 @@ export function SettingsScreen() {
 
     const [isLoading, setIsLoading] = useState(true);
     const [obdSettings, setObdSettings] = useState<ObdSettings>(DEFAULT_OBD_SETTINGS);
-    const [ledSettings, setLedSettings] = useState<LedSettings>(DEFAULT_LED_SETTINGS);
     const [gearSettings, setGearSettings] = useState<GearSettings>(DEFAULT_GEAR_SETTINGS);
 
-    // Carrega as configurações do AsyncStorage ao abrir a tela
+    // Dados Globais do LED via Contexto
+    const {
+        ledSettings,
+        updateLedSettings,
+        isConnected: isLedConnected,
+        isScanning: isLedScanning,
+        connectToLed,
+        disconnect: disconnectLed,
+    } = useLed();
+
     useEffect(() => {
-        async function loadAllSettings() {
+        async function loadOtherSettings() {
             setIsLoading(true);
-            const [savedObd, savedLed, savedGear] = await Promise.all([
+            const [savedObd, savedGear] = await Promise.all([
                 SettingsStorage.getObdSettings(),
-                SettingsStorage.getLedSettings(),
                 SettingsStorage.getGearSettings(),
             ]);
 
             setObdSettings(savedObd);
-            setLedSettings(savedLed);
             setGearSettings(savedGear);
             setIsLoading(false);
         }
-        loadAllSettings();
+        loadOtherSettings();
     }, []);
 
     const handleSaveObd = async () => {
@@ -76,7 +81,7 @@ export function SettingsScreen() {
             Alert.alert('Erro', 'Nome e UUID do LED não podem ficar vazios.');
             return;
         }
-        await SettingsStorage.saveLedSettings(ledSettings);
+        await updateLedSettings(ledSettings);
         Alert.alert('Sucesso', 'Configurações do LED salvas!');
     };
 
@@ -240,13 +245,17 @@ export function SettingsScreen() {
             </ExpandablePanel>
 
             {/* Configuração Dispositivo LED */}
-            <ExpandablePanel title="Configurar Dispositivo LED" icon="💡" status={ledSettings.name}>
+            <ExpandablePanel
+                title="Configurar Dispositivo LED"
+                icon="💡"
+                status={isLedConnected ? '🟢 Conectado' : ledSettings.name}
+            >
                 <View style={styles.fieldContainer}>
                     <Text style={styles.fieldLabel}>Nome do Dispositivo BLE</Text>
                     <TextInput
                         style={styles.textInput}
                         value={ledSettings.name}
-                        onChangeText={(text) => setLedSettings({ ...ledSettings, name: text })}
+                        onChangeText={(text) => updateLedSettings({ ...ledSettings, name: text })}
                         placeholder="LEDDMX-000101"
                         placeholderTextColor="rgba(255, 255, 255, 0.3)"
                         autoCapitalize="none"
@@ -258,7 +267,7 @@ export function SettingsScreen() {
                     <TextInput
                         style={styles.textInput}
                         value={ledSettings.uuid}
-                        onChangeText={(text) => setLedSettings({ ...ledSettings, uuid: text })}
+                        onChangeText={(text) => updateLedSettings({ ...ledSettings, uuid: text })}
                         placeholder="0000ffe1-0000-1000-8000-00805f9b34fb"
                         placeholderTextColor="rgba(255, 255, 255, 0.3)"
                         autoCapitalize="none"
@@ -270,12 +279,10 @@ export function SettingsScreen() {
                         <Text style={styles.fieldLabel}>RPM do Shift Light</Text>
                         <TextInput
                             style={styles.textInput}
-                            // Converte o número do estado para string para o TextInput conseguir exibir
                             value={String(ledSettings.redlineRpm ?? '')}
-                            // Converte o texto digitado para número antes de salvar
                             onChangeText={(text) => {
                                 const numericValue = text === '' ? 0 : Number(text.replace(/[^0-9]/g, ''));
-                                setLedSettings({ ...ledSettings, redlineRpm: numericValue });
+                                updateLedSettings({ ...ledSettings, redlineRpm: numericValue });
                             }}
                             placeholder="3000"
                             keyboardType="numeric"
@@ -287,12 +294,10 @@ export function SettingsScreen() {
                         <Text style={styles.fieldLabel}>Velocidade do Pisca (ms)</Text>
                         <TextInput
                             style={styles.textInput}
-                            // Converte o número do estado para string para o TextInput
                             value={String(ledSettings.blinkSpeed ?? '')}
-                            // Converte o texto digitado para número antes de salvar
                             onChangeText={(text) => {
                                 const numericValue = text === '' ? 0 : Number(text.replace(/[^0-9]/g, ''));
-                                setLedSettings({ ...ledSettings, blinkSpeed: numericValue });
+                                updateLedSettings({ ...ledSettings, blinkSpeed: numericValue });
                             }}
                             placeholder="70"
                             keyboardType="numeric"
@@ -308,7 +313,7 @@ export function SettingsScreen() {
                             <TextInput
                                 style={[styles.textInput, styles.colorInput]}
                                 value={ledSettings.colorNormal}
-                                onChangeText={(text) => setLedSettings({ ...ledSettings, colorNormal: text })}
+                                onChangeText={(text) => updateLedSettings({ ...ledSettings, colorNormal: text })}
                                 placeholder="#0084ff"
                                 placeholderTextColor="rgba(255, 255, 255, 0.3)"
                             />
@@ -321,7 +326,7 @@ export function SettingsScreen() {
                             <TextInput
                                 style={[styles.textInput, styles.colorInput]}
                                 value={ledSettings.colorRedline}
-                                onChangeText={(text) => setLedSettings({ ...ledSettings, colorRedline: text })}
+                                onChangeText={(text) => updateLedSettings({ ...ledSettings, colorRedline: text })}
                                 placeholder="#ff0000"
                                 placeholderTextColor="rgba(255, 255, 255, 0.3)"
                             />
@@ -335,7 +340,7 @@ export function SettingsScreen() {
                         <Text style={styles.fieldLabel}>Shift Light Auto</Text>
                         <Switch
                             value={ledSettings.autoShift}
-                            onValueChange={(value) => setLedSettings({ ...ledSettings, autoShift: value })}
+                            onValueChange={(value) => updateLedSettings({ ...ledSettings, autoShift: value })}
                             trackColor={{ false: '#333', true: '#00ff66' }}
                             thumbColor={ledSettings.autoShift ? '#00ff99' : '#999'}
                         />
@@ -348,6 +353,20 @@ export function SettingsScreen() {
                         onPress={handleSaveLed}
                     >
                         <Text style={styles.buttonText}>✓ Salvar LED</Text>
+                    </Pressable>
+
+                    <Pressable
+                        style={[styles.actionButton, isLedConnected ? styles.connectButton : {}]}
+                        onPress={() => (isLedConnected ? disconnectLed() : connectToLed())}
+                        disabled={isLedScanning}
+                    >
+                        <Text style={styles.buttonText}>
+                            {isLedScanning
+                                ? 'Buscando...'
+                                : isLedConnected
+                                    ? '✓ Conectado'
+                                    : 'Conectar LED'}
+                        </Text>
                     </Pressable>
                 </View>
             </ExpandablePanel>

@@ -1,9 +1,7 @@
-// services/ble/led-service.ts
 import { Buffer } from 'buffer';
 import { Device, State } from 'react-native-ble-plx';
 import { getBleManager } from './ble-manager';
 
-// UUIDs padrão da fita LEDDMX / LED LAMP
 export const LED_UUIDS = {
   SERVICE: '0000ffe0-0000-1000-8000-00805f9b34fb',
   CHARACTERISTIC: '0000ffe1-0000-1000-8000-00805f9b34fb',
@@ -18,55 +16,80 @@ export class LedService {
     return state === State.PoweredOn;
   }
 
+  public isConnected(): boolean {
+    return this.connectedDevice !== null;
+  }
+
   scanAndConnect(
     deviceName: string,
     onConnected: (device: Device) => void,
-    onError: (error: Error) => void
+    onError: (error: Error) => void,
+    timeoutMs = 8000
   ): void {
+    // Timeout para não ficar escaneando infinitamente
+    const timeoutId = setTimeout(() => {
+      getBleManager().stopDeviceScan();
+      if (!this.connectedDevice) {
+        onError(new Error('Timeout: Fita LED não encontrada.'));
+      }
+    }, timeoutMs);
+
     getBleManager().startDeviceScan(null, null, async (error, device) => {
       if (error) {
-        onError(error);
+        clearTimeout(timeoutId);
         getBleManager().stopDeviceScan();
+        onError(error);
         return;
       }
 
       if (device && (device.name === deviceName || device.localName === deviceName)) {
+        clearTimeout(timeoutId);
         getBleManager().stopDeviceScan();
 
         try {
           const connected = await device.connect();
           const discovered = await connected.discoverAllServicesAndCharacteristics();
+
           this.connectedDevice = discovered;
           this.lastColor = null;
+
+          // Monitora desconexão automática da fita
+          discovered.onDisconnected(() => {
+            console.warn('Fita LED desconectou.');
+            this.connectedDevice = null;
+            this.lastColor = null;
+          });
+
           onConnected(discovered);
         } catch (err) {
+          this.connectedDevice = null;
           onError(err as Error);
         }
       }
     });
   }
 
-  /**
-   * Envia um array de bytes brutos convertidos para Base64
-   */
   private async writeBytes(byteArray: number[]): Promise<void> {
     if (!this.connectedDevice) {
-      throw new Error('Nenhum dispositivo LED conectado.');
+      return;
     }
 
-    const base64Data = Buffer.from(byteArray).toString('base64');
+    try {
+      const base64Data = Buffer.from(byteArray).toString('base64');
 
-    await this.connectedDevice.writeCharacteristicWithoutResponseForService(
-      LED_UUIDS.SERVICE,
-      LED_UUIDS.CHARACTERISTIC,
-      base64Data
-    );
+      await this.connectedDevice.writeCharacteristicWithoutResponseForService(
+        LED_UUIDS.SERVICE,
+        LED_UUIDS.CHARACTERISTIC,
+        base64Data
+      );
+    } catch (error) {
+      console.warn('Falha ao enviar dados para a fita LED:', error);
+      // Reseta estado interno caso a comunicação falhe
+      this.connectedDevice = null;
+      this.lastColor = null;
+    }
   }
 
-  /**
-   * Ligas/Desliga a fita
-   * Frame Power: [0x7B, 0xFF, 0x04, 0x03 (ON) | 0x02 (OFF), 0xFF, 0xFF, 0xFF, 0xFF, 0xBF]
-   */
   async setPower(powerOn: boolean): Promise<void> {
     const command = [
       0x7b,
@@ -82,10 +105,6 @@ export class LedService {
     await this.writeBytes(command);
   }
 
-  /**
-   * Define a cor da fita
-   * Frame RGB: [0x7B, 0xFF, 0x07, R, G, B, 0x00, 0xFF, 0xBF]
-   */
   async setRgbColor(r: number, g: number, b: number, force = false): Promise<void> {
     const red = Math.max(0, Math.min(255, Math.floor(r)));
     const green = Math.max(0, Math.min(255, Math.floor(g)));
@@ -93,7 +112,7 @@ export class LedService {
 
     const colorKey = `${red},${green},${blue}`;
 
-    // Anti-flood: evita reenviar a mesma cor durante varreduras do OBD2
+    // Anti-flood: evita re-enviar comandos idênticos no ciclo
     if (!force && this.lastColor === colorKey) {
       return;
     }
@@ -104,11 +123,42 @@ export class LedService {
     await this.writeBytes(command);
   }
 
+  /**
+   * Lógica do Shift Light baseada no RPM (Substitui a função do Python)
+   */
+  async updateShiftLight(
+    rpm: number,
+    redlineRpm: number,
+    blinkIntervalMs: number,
+    normalColor: [number, number, number],
+    redlineColor: [number, number, number]
+  ): Promise<void> {
+    if (!this.connectedDevice) return;
+
+    // Se estiver abaixo do redline, exibe cor normal sólida
+    if (rpm < redlineRpm) {
+      await this.setRgbColor(normalColor[0], normalColor[1], normalColor[2]);
+      return;
+    }
+
+    // A partir do redline: efeito strobe (pisca alternando entre cor de redline e apagado)
+    const intervalSec = Math.max(0.02, blinkIntervalMs / 1000.0);
+    const phase = Math.floor((Date.now() / 1000) / intervalSec) % 2;
+
+    const [r, g, b] = phase === 0 ? redlineColor : [0, 0, 0];
+    await this.setRgbColor(r, g, b);
+  }
+
   async disconnect(): Promise<void> {
     if (this.connectedDevice) {
-      await getBleManager().cancelDeviceConnection(this.connectedDevice.id);
-      this.connectedDevice = null;
-      this.lastColor = null;
+      try {
+        await getBleManager().cancelDeviceConnection(this.connectedDevice.id);
+      } catch (err) {
+        console.warn('Erro ao desconectar:', err);
+      } finally {
+        this.connectedDevice = null;
+        this.lastColor = null;
+      }
     }
   }
 }
