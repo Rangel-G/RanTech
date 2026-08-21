@@ -6,7 +6,7 @@ interface ChannelBoxProps {
     label: string;
     value: string | number;
     unit?: string;
-    size?: 'small' | 'medium' | 'large';
+    size?: 'small' | 'smallMedium' | 'medium' | 'mediumLarge' | 'large';
     onPress?: () => void;
     isActive?: boolean;
     theme?: 'default' | 'success' | 'warning' | 'error';
@@ -23,7 +23,9 @@ export function ChannelBox({
 }: ChannelBoxProps) {
     const sizeStyles = {
         small: styles.sizeSmall,
+        smallMedium: styles.sizeSmallMedium,
         medium: styles.sizeMedium,
+        mediumLarge: styles.sizeMediumLarge,
         large: styles.sizeLarge,
     };
 
@@ -66,12 +68,20 @@ const styles = StyleSheet.create({
         minHeight: 100,
     },
     sizeSmall: {
+        paddingVertical: SPACING.xs,
+        minHeight: 70,
+    },
+    sizeSmallMedium: {
         paddingVertical: SPACING.sm,
-        minHeight: 90,
+        minHeight: 100,
     },
     sizeMedium: {
         paddingVertical: SPACING.md,
         minHeight: 120,
+    },
+    sizeMediumLarge: {
+        paddingVertical: SPACING.md,
+        minHeight: 140,
     },
     sizeLarge: {
         paddingVertical: SPACING.xxl,

@@ -6,11 +6,7 @@ import { StyleSheet, View } from 'react-native';
 
 export function DailyDashboard() {
 
-
     const { data } = useReception()
-
-    // Simulate data updates
-
 
     return (
         <View style={styles.container}>

@@ -1,4 +1,5 @@
 import { ChannelBox } from '@/components/ui/channel-box';
+import { RpmRamp } from '@/components/ui/rpmRamp';
 import { useReception } from '@/services/reception';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -9,7 +10,10 @@ export function StreetDashboard() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.gridContainer}>
+      <View style={styles.rpmContainer}>
+          <RpmRamp rpm={data.rpm} rpmMax={data.rpmMax} />
+        </View>
+      <View style={styles.gridContainer}>      
         {/* Esquerda: Velocidade */}
         <View style={styles.leftColumn}>
           <ChannelBox
@@ -88,5 +92,9 @@ const styles = StyleSheet.create({
   },
   cell: {
     flex: 1,
+  },
+  rpmContainer: {
+    width: '100%',
+    marginBottom: 16,
   },
 });

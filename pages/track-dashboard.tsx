@@ -1,24 +1,19 @@
 import { ChannelBox } from '@/components/ui/channel-box';
+import { RpmRamp } from '@/components/ui/rpmRamp';
 import { useReception } from '@/services/reception';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 export function TrackDashboard() {
 
-const {data} = useReception();
+    const { data } = useReception();
 
     return (
         <View style={styles.container}>
-            {/* Full-width RPM box at top */}
-            <View style={styles.fullWidthBox}>
-                <ChannelBox
-                    label="Rotação Motor"
-                    value={Math.round(data.rpm)}
-                    unit="RPM"
-                    size="large"
-                    theme="default"
-                />
+            <View style={styles.rpmContainer}>
+                <RpmRamp rpm={data.rpm} rpmMax={data.rpmMax} />
             </View>
+
 
             {/* 3-column grid for middle row */}
             <View style={styles.threeColumnRow}>
@@ -100,5 +95,9 @@ const styles = StyleSheet.create({
     twoRowBottom: {
         flexDirection: 'row',
         gap: 12,
+    },
+    rpmContainer: {
+        width: '100%',
+        marginBottom: 16,
     },
 });
