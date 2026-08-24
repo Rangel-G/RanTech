@@ -33,6 +33,13 @@ export default function RootLayout() {
             <Stack>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+              <Stack.Screen
+                name="realMap"
+                options={{
+                  headerShown: false,
+                  headerBackTitle: 'Voltar',
+                }}
+              />
             </Stack>
             <StatusBar hidden translucent backgroundColor="transparent" />
           </DashboardProfileProvider>
