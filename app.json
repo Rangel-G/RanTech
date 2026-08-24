@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "RanTech_Mobile",
-    "slug": "RanTech_Mobile",
+    "name": "RanTech Mobile",
+    "slug": "rantech_mobile",
+    "newArchEnabled": true,
     "version": "1.0.0",
     "orientation": "default",
     "scheme": "rantechmobile",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "splash": {
       "backgroundColor": "#000000",
       "resizeMode": "contain"
@@ -20,7 +20,6 @@
     "androidStatusBar": {
       "hidden": true,
       "translucent": true,
-      "backgroundColor": "#00000000"
     },
     "androidNavigationBar": {
       "hidden": true,
@@ -57,7 +56,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "@react-native-google-signin/google-signin"
     ],
     "android": {
       "adaptiveIcon": {

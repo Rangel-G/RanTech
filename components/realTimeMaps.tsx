@@ -1,4 +1,3 @@
-// Exemplo estrutural para React Native Maps / Mapbox
 import { GroupMember } from '@/services/group-service';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -8,10 +7,17 @@ interface RealTimeMapProps {
     latitude: number;
     longitude: number;
     heading: number;
+    userColor?: string;
     members?: GroupMember[];
 }
 
-export function RealTimeMap({ latitude, longitude, heading, members = [] }: RealTimeMapProps) {
+export function RealTimeMap({
+    latitude,
+    longitude,
+    heading,
+    userColor = '#00ffff',
+    members = [],
+}: RealTimeMapProps) {
     return (
         <MapView
             style={styles.map}
@@ -22,14 +28,20 @@ export function RealTimeMap({ latitude, longitude, heading, members = [] }: Real
                 longitudeDelta: 0.01,
             }}
         >
-            {/* Marker do Usuário Atual */}
+            {/* Marker do Usuário Atual ajustado com userColor */}
             <Marker
                 coordinate={{ latitude, longitude }}
                 flat
                 rotation={heading}
                 anchor={{ x: 0.5, y: 0.5 }}
-                title="Você"
-            />
+            >
+                <View style={styles.memberMarkerContainer}>
+                    <View style={[styles.markerPointer, { borderColor: userColor }]} />
+                    <View style={styles.memberNameTag}>
+                        <Text style={styles.memberNameText}>Você</Text>
+                    </View>
+                </View>
+            </Marker>
 
             {/* Markers dos Outros Membros */}
             {members.map((member) => (
@@ -43,7 +55,6 @@ export function RealTimeMap({ latitude, longitude, heading, members = [] }: Real
                     rotation={member.heading ?? 0}
                     anchor={{ x: 0.5, y: 0.5 }}
                 >
-                    {/* Renderização customizada (Ícone + Nome do Piloto) */}
                     <View style={styles.memberMarkerContainer}>
                         <View style={[styles.markerPointer, { borderColor: member.pointerColor || '#00ffff' }]} />
                         <View style={styles.memberNameTag}>

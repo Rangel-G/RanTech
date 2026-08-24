@@ -1,59 +1,43 @@
 import { RealTimeMap } from '@/components/realTimeMaps';
+import { useGroup } from '@/contexts/group-context';
 import { GroupMember, GroupService } from '@/services/group-service';
 import { useReception } from '@/services/reception';
-import { SettingsStorage } from '@/services/storage/settings-storage';
 import * as Location from 'expo-location';
+import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 export default function RealMapScreen() {
     const { data } = useReception();
+    const { activeGroup, userId, userName, pointerColor } = useGroup();
+
     const [userLocation, setUserLocation] = useState<{
         latitude: number;
         longitude: number;
     } | null>(null);
 
     const [members, setMembers] = useState<GroupMember[]>([]);
-    const [groupKey, setGroupKey] = useState<string | null>(null);
-    const [userId, setUserId] = useState<string | null>(null);
-    const [pointerColor, setPointerColor] = useState<string>('#00ffff');
 
-    // 1. Carrega dados de configuração (Grupo Ativo, ID do Usuário e Cor)
+    // 1. Escuta membros do grupo em tempo real
     useEffect(() => {
-        async function loadContext() {
-            // Exemplo de busca dos dados de configuração persistidos
-            const obdSettings = await SettingsStorage.getObdSettings();
-            
-            // Defina ou recupere a chave do grupo e o ID do usuário local
-            // (Ajuste conforme onde armazena o grupo ativo)
-            setGroupKey("nome_do_grupo_ativo"); 
-            setUserId("user_id_unico_dispositivo"); 
-            setPointerColor("#00ffff");
+        if (!activeGroup || !userId) {
+            setMembers([]);
+            return;
         }
-        loadContext();
-    }, []);
 
-    // 2. Escuta os membros do grupo em tempo real
-    useEffect(() => {
-        if (!groupKey) return;
-
-        // Nome de método corrigido para subscribeToMembers e repasse do groupKey
-        const unsubscribe = GroupService.subscribeToMembers(groupKey, (updatedMembers) => {
-            // Filtra o próprio usuário da lista de membros do grupo
+        const unsubscribe = GroupService.subscribeToMembers(activeGroup, (updatedMembers) => {
             const otherMembers = updatedMembers.filter((m) => m.userId !== userId);
             setMembers(otherMembers);
         });
 
         return () => unsubscribe();
-    }, [groupKey, userId]);
+    }, [activeGroup, userId]);
 
-    // 3. Rastreamento e transmissão da localização local
+    // 2. Rastreia e transmite a posição no grupo
     useEffect(() => {
         let subscription: Location.LocationSubscription | null = null;
 
         async function startTracking() {
-            if (!groupKey || !userId) return;
-
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') return;
 
@@ -67,19 +51,19 @@ export default function RealMapScreen() {
                     const coords = {
                         latitude: location.coords.latitude,
                         longitude: location.coords.longitude,
-                        heading: data.heading ?? 0,
                     };
 
                     setUserLocation(coords);
 
-                    // Nome de método corrigido para updateLocation + passagem de payload completo
-                    GroupService.updateLocation(groupKey, userId, {
-                        latitude: coords.latitude,
-                        longitude: coords.longitude,
-                        heading: coords.heading,
-                        pointerColor: pointerColor,
-                        name: "Piloto 1", // Pode vir do storage/configuração
-                    });
+                    if (activeGroup && userId) {
+                        GroupService.updateLocation(activeGroup, userId, {
+                            latitude: coords.latitude,
+                            longitude: coords.longitude,
+                            heading: data.heading ?? 0,
+                            pointerColor,
+                            name: userName,
+                        });
+                    }
                 }
             );
         }
@@ -89,7 +73,7 @@ export default function RealMapScreen() {
         return () => {
             if (subscription) subscription.remove();
         };
-    }, [groupKey, userId, pointerColor, data.heading]);
+    }, [activeGroup, userId, userName, pointerColor, data.heading]);
 
     if (!userLocation) {
         return (
@@ -100,20 +84,49 @@ export default function RealMapScreen() {
     }
 
     return (
-        <RealTimeMap
-            latitude={userLocation.latitude}
-            longitude={userLocation.longitude}
-            heading={data.heading ?? 0}
-            members={members}
-        />
+        <View style={styles.container}>
+            {/* Botão de Voltar Flutuante */}
+            <Pressable style={styles.backButton} onPress={() => router.back()}>
+                <Text style={styles.backButtonText}>← Voltar</Text>
+            </Pressable>
+
+            <RealTimeMap
+                latitude={userLocation.latitude}
+                longitude={userLocation.longitude}
+                heading={data.heading ?? 0}
+                userColor={pointerColor} // Repassa a cor configurada para o seu ponteiro
+                members={members}
+            />
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#020810',
+    },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: '#020810',
+    },
+    backButton: {
+        position: 'absolute',
+        top: 50,
+        left: 16,
+        zIndex: 10,
+        backgroundColor: 'rgba(2, 8, 16, 0.85)',
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(0, 255, 255, 0.3)',
+    },
+    backButtonText: {
+        color: '#8be8ff',
+        fontSize: 14,
+        fontWeight: 'bold',
     },
 });

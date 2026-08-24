@@ -1,6 +1,6 @@
 import { ExpandablePanel } from '@/components/ui/expandable-panel';
+import { useGroup } from '@/contexts/group-context';
 import { useLed } from '@/contexts/led-context';
-import { GroupService } from '@/services/group-service';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -22,6 +22,20 @@ import {
 } from '../services/storage/settings-storage';
 
 export function SettingsScreen() {
+    // Contexto de Grupo e Autenticação (Unificado)
+    const {
+        user,
+        activeGroup,
+        userName,
+        pointerColor,
+        saveMapSettings,
+        createGroup,
+        joinGroup,
+        leaveGroup,
+        logout,
+        promptGoogleLogin,
+    } = useGroup();
+
     const obdTypeOptions = [
         { value: 'bluetooth', label: 'Bluetooth ELM327 (Porta COM)' },
         { value: 'usb', label: 'USB Direto (Porta COM)' },
@@ -47,13 +61,17 @@ export function SettingsScreen() {
     const [obdSettings, setObdSettings] = useState<ObdSettings>(DEFAULT_OBD_SETTINGS);
     const [gearSettings, setGearSettings] = useState<GearSettings>(DEFAULT_GEAR_SETTINGS);
 
-    // Estado do Mapa e Grupo
-    const [mapSettings, setMapSettings] = useState({
-        pointerColor: '#00ffff',
-        groupName: '',
-        groupPassword: '',
-        activeGroup: null as string | null,
-    });
+    // Estado do Formulário do Perfil e Grupo
+    const [mapColor, setMapColor] = useState(pointerColor);
+    const [pilotName, setPilotName] = useState(userName);
+    const [groupNameInput, setGroupNameInput] = useState('');
+    const [groupPasswordInput, setGroupPasswordInput] = useState('');
+
+    // Sincroniza estados do contexto quando carregados
+    useEffect(() => {
+        setMapColor(pointerColor);
+        setPilotName(userName);
+    }, [pointerColor, userName]);
 
     // Dados Globais do LED via Contexto
     const {
@@ -99,39 +117,44 @@ export function SettingsScreen() {
         Alert.alert('Sucesso', 'Relações de Marcha salvas!');
     };
 
-    // Handlers do Grupo / Mapa
+    // Handlers do Perfil e Grupo
+    const handleSaveMapSettings = async () => {
+        await saveMapSettings(mapColor, pilotName);
+        Alert.alert('Sucesso', 'Configurações do Perfil/Mapa salvas!');
+    };
+
     const handleCreateGroup = async () => {
-        if (!mapSettings.groupName.trim() || !mapSettings.groupPassword.trim()) {
+        if (!groupNameInput.trim() || !groupPasswordInput.trim()) {
             Alert.alert('Atenção', 'Informe o nome e a senha do grupo.');
             return;
         }
 
         try {
-            await GroupService.createGroup(mapSettings.groupName, mapSettings.groupPassword);
-            setMapSettings((prev) => ({ ...prev, activeGroup: prev.groupName }));
-            Alert.alert('Sucesso', `Grupo "${mapSettings.groupName}" criado!`);
+            await createGroup(groupNameInput, groupPasswordInput);
+            Alert.alert('Sucesso', `Grupo "${groupNameInput}" criado!`);
         } catch (error: any) {
             Alert.alert('Erro', error.message || 'Falha ao criar o grupo.');
         }
     };
 
     const handleJoinGroup = async () => {
-        if (!mapSettings.groupName.trim() || !mapSettings.groupPassword.trim()) {
+        if (!groupNameInput.trim() || !groupPasswordInput.trim()) {
             Alert.alert('Atenção', 'Informe o nome e a senha do grupo.');
             return;
         }
 
         try {
-            await GroupService.joinGroup(mapSettings.groupName, mapSettings.groupPassword);
-            setMapSettings((prev) => ({ ...prev, activeGroup: prev.groupName }));
-            Alert.alert('Sucesso', `Você entrou no grupo "${mapSettings.groupName}"!`);
+            await joinGroup(groupNameInput, groupPasswordInput);
+            Alert.alert('Sucesso', `Você entrou no grupo "${groupNameInput}"!`);
         } catch (error: any) {
             Alert.alert('Erro', error.message || 'Falha ao entrar no grupo.');
         }
     };
 
-    const handleLeaveGroup = () => {
-        setMapSettings((prev) => ({ ...prev, activeGroup: null, groupName: '', groupPassword: '' }));
+    const handleLeaveGroup = async () => {
+        await leaveGroup();
+        setGroupNameInput('');
+        setGroupPasswordInput('');
         Alert.alert('Sucesso', 'Você saiu do grupo.');
     };
 
@@ -177,36 +200,85 @@ export function SettingsScreen() {
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-            {/* Configurações do Mapa e Grupo */}
+            {/* Status da Conta do Usuário */}
             <ExpandablePanel
-                title="Configurações do Mapa & Grupo"
-                icon="🗺️"
-                status={mapSettings.activeGroup ? `🟢 ${mapSettings.activeGroup}` : 'Sem Grupo'}
+                title="Conta e Autenticação"
+                icon="👤"
+                status={user ? user.email || 'Conectado' : 'Não Logado'}
                 defaultExpanded
             >
+                {user ? (
+                    <View style={styles.fieldContainer}>
+                        <Text style={styles.accountText}>Logado como: {user.email}</Text>
+                        <Pressable style={[styles.actionButton, styles.leaveButton]} onPress={logout}>
+                            <Text style={styles.leaveButtonText}>🚪 Sair da Conta Google</Text>
+                        </Pressable>
+                    </View>
+                ) : (
+                    <View style={styles.fieldContainer}>
+                        <Text style={styles.accountText}>
+                            Faça login com a sua Conta Google na tela inicial para sincronizar suas preferências.
+                        </Text>
+
+                        <Pressable
+                            style={[styles.actionButton, styles.connectButton]}
+                            onPress={() => promptGoogleLogin()}
+                        >
+                            <Text style={styles.buttonText}>🔑 Entrar com Google</Text>
+                        </Pressable>
+                    </View>
+                )}
+            </ExpandablePanel>
+
+            {/* Configurações do Mapa e Perfil do Piloto */}
+            <ExpandablePanel
+                title="Perfil e Configurações do Mapa"
+                icon="🗺️"
+                status={activeGroup ? `🟢 Grupo: ${activeGroup}` : 'Sem Grupo'}
+                defaultExpanded
+            >
+                <View style={styles.fieldContainer}>
+                    <Text style={styles.fieldLabel}>Nome do Piloto</Text>
+                    <TextInput
+                        style={styles.textInput}
+                        value={pilotName}
+                        onChangeText={setPilotName}
+                        placeholder="Ex: Ayrton Senna"
+                        placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                    />
+                </View>
+
                 <View style={styles.fieldContainer}>
                     <Text style={styles.fieldLabel}>Cor do Pointer Pessoal</Text>
                     <View style={styles.colorPickerWrapper}>
                         <TextInput
                             style={[styles.textInput, styles.colorInput]}
-                            value={mapSettings.pointerColor}
-                            onChangeText={(text) => setMapSettings({ ...mapSettings, pointerColor: text })}
+                            value={mapColor}
+                            onChangeText={setMapColor}
                             placeholder="#00FFFF"
                             placeholderTextColor="rgba(255, 255, 255, 0.3)"
                         />
-                        <View style={[styles.colorPreview, { backgroundColor: mapSettings.pointerColor }]} />
+                        <View style={[styles.colorPreview, { backgroundColor: mapColor || '#00ffff' }]} />
                     </View>
                 </View>
+
+                <View style={styles.buttonRow}>
+                    <Pressable style={[styles.actionButton, styles.saveButton]} onPress={handleSaveMapSettings}>
+                        <Text style={styles.buttonText}>✓ Salvar Perfil / Cor</Text>
+                    </Pressable>
+                </View>
+
+                <View style={styles.divider} />
 
                 <View style={styles.fieldContainer}>
                     <Text style={styles.fieldLabel}>Nome do Grupo</Text>
                     <TextInput
                         style={styles.textInput}
-                        value={mapSettings.groupName}
-                        onChangeText={(text) => setMapSettings({ ...mapSettings, groupName: text })}
+                        value={groupNameInput}
+                        onChangeText={setGroupNameInput}
                         placeholder="Ex: Serra do Mar Rally"
                         placeholderTextColor="rgba(255, 255, 255, 0.3)"
-                        editable={!mapSettings.activeGroup}
+                        editable={!activeGroup}
                     />
                 </View>
 
@@ -214,19 +286,19 @@ export function SettingsScreen() {
                     <Text style={styles.fieldLabel}>Senha do Grupo</Text>
                     <TextInput
                         style={styles.textInput}
-                        value={mapSettings.groupPassword}
-                        onChangeText={(text) => setMapSettings({ ...mapSettings, groupPassword: text })}
+                        value={groupPasswordInput}
+                        onChangeText={setGroupPasswordInput}
                         placeholder="••••••••"
                         placeholderTextColor="rgba(255, 255, 255, 0.3)"
                         secureTextEntry
-                        editable={!mapSettings.activeGroup}
+                        editable={!activeGroup}
                     />
                 </View>
 
-                {mapSettings.activeGroup ? (
+                {activeGroup ? (
                     <View style={styles.buttonRow}>
                         <Pressable style={[styles.actionButton, styles.leaveButton]} onPress={handleLeaveGroup}>
-                            <Text style={styles.leaveButtonText}>🚪 Sair do Grupo</Text>
+                            <Text style={styles.leaveButtonText}>🚪 Sair do Grupo ({activeGroup})</Text>
                         </Pressable>
                     </View>
                 ) : (
@@ -242,7 +314,7 @@ export function SettingsScreen() {
             </ExpandablePanel>
 
             {/* Configuração OBD-II */}
-            <ExpandablePanel title="Configurar Conexão" icon="🔌" status={obdSettings.port}>
+            <ExpandablePanel title="Configurar Conexão OBD" icon="🔌" status={obdSettings.port}>
                 <View style={styles.fieldContainer}>
                     <Text style={styles.fieldLabel}>Tipo de Conexão</Text>
                     {renderOptionButtonList(
@@ -552,6 +624,11 @@ const styles = StyleSheet.create({
     fieldContainer: {
         marginBottom: 14,
     },
+    accountText: {
+        color: '#ffffff',
+        fontSize: 14,
+        marginBottom: 10,
+    },
     fieldLabel: {
         fontSize: 13,
         color: '#8be8ff',
@@ -559,6 +636,11 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
         textTransform: 'uppercase',
         marginBottom: 6,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: 'rgba(0, 255, 255, 0.15)',
+        marginVertical: 16,
     },
     textInput: {
         backgroundColor: 'rgba(0, 0, 0, 0.4)',

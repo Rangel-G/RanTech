@@ -7,6 +7,7 @@ import { Platform } from 'react-native';
 import 'react-native-reanimated';
 
 import { DashboardProfileProvider } from '@/contexts/dashboard-profile-context';
+import { GroupProvider } from '@/contexts/group-context';
 import { LedProvider } from '@/contexts/led-context';
 import { TelemetryProvider } from '@/contexts/telemetryContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -21,30 +22,47 @@ export default function RootLayout() {
   useEffect(() => {
     if (Platform.OS !== 'android') return;
 
-    NavigationBar.setVisibilityAsync('hidden');
-    NavigationBar.setBehaviorAsync('inset-touch');
+    // Tratamento assíncrono para evitar requisições não tratadas na inicialização
+    const configureNavigationBar = async () => {
+      try {
+        await NavigationBar.setVisibilityAsync('hidden');
+        await NavigationBar.setBehaviorAsync('inset-touch');
+      } catch (error) {
+        console.warn('Erro ao configurar NavigationBar:', error);
+      }
+    };
+
+    configureNavigationBar();
   }, []);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <LedProvider>
-        <TelemetryProvider>
-          <DashboardProfileProvider>
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-              <Stack.Screen
-                name="realMap"
-                options={{
-                  headerShown: false,
-                  headerBackTitle: 'Voltar',
-                }}
-              />
-            </Stack>
-            <StatusBar hidden translucent backgroundColor="transparent" />
-          </DashboardProfileProvider>
-        </TelemetryProvider>
-      </LedProvider>
+      <GroupProvider>
+        <LedProvider>
+          <TelemetryProvider>
+            <DashboardProfileProvider>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen
+                  name="modal"
+                  options={{
+                    presentation: 'modal',
+                    title: 'Modal',
+                    headerShown: true,
+                  }}
+                />
+                <Stack.Screen
+                  name="realMap"
+                  options={{
+                    headerBackTitle: 'Voltar',
+                  }}
+                />
+              </Stack>
+              <StatusBar hidden translucent backgroundColor="transparent" />
+            </DashboardProfileProvider>
+          </TelemetryProvider>
+        </LedProvider>
+      </GroupProvider>
     </ThemeProvider>
   );
 }
