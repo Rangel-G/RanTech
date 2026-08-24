@@ -1,5 +1,6 @@
 import { ExpandablePanel } from '@/components/ui/expandable-panel';
 import { useLed } from '@/contexts/led-context';
+import { GroupService } from '@/services/group-service';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -99,22 +100,34 @@ export function SettingsScreen() {
     };
 
     // Handlers do Grupo / Mapa
-    const handleCreateGroup = () => {
+    const handleCreateGroup = async () => {
         if (!mapSettings.groupName.trim() || !mapSettings.groupPassword.trim()) {
-            Alert.alert('Erro', 'Informe o nome e a senha para criar um grupo.');
+            Alert.alert('Atenção', 'Informe o nome e a senha do grupo.');
             return;
         }
-        setMapSettings((prev) => ({ ...prev, activeGroup: prev.groupName }));
-        Alert.alert('Sucesso', `Grupo "${mapSettings.groupName}" criado com sucesso!`);
+
+        try {
+            await GroupService.createGroup(mapSettings.groupName, mapSettings.groupPassword);
+            setMapSettings((prev) => ({ ...prev, activeGroup: prev.groupName }));
+            Alert.alert('Sucesso', `Grupo "${mapSettings.groupName}" criado!`);
+        } catch (error: any) {
+            Alert.alert('Erro', error.message || 'Falha ao criar o grupo.');
+        }
     };
 
-    const handleJoinGroup = () => {
+    const handleJoinGroup = async () => {
         if (!mapSettings.groupName.trim() || !mapSettings.groupPassword.trim()) {
-            Alert.alert('Erro', 'Informe o nome e a senha do grupo.');
+            Alert.alert('Atenção', 'Informe o nome e a senha do grupo.');
             return;
         }
-        setMapSettings((prev) => ({ ...prev, activeGroup: prev.groupName }));
-        Alert.alert('Sucesso', `Você entrou no grupo "${mapSettings.groupName}"!`);
+
+        try {
+            await GroupService.joinGroup(mapSettings.groupName, mapSettings.groupPassword);
+            setMapSettings((prev) => ({ ...prev, activeGroup: prev.groupName }));
+            Alert.alert('Sucesso', `Você entrou no grupo "${mapSettings.groupName}"!`);
+        } catch (error: any) {
+            Alert.alert('Erro', error.message || 'Falha ao entrar no grupo.');
+        }
     };
 
     const handleLeaveGroup = () => {
