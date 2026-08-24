@@ -14,6 +14,9 @@ export interface ReceptionData {
     tc: boolean;
     wheelSpin: 'ESTÁVEL' | 'PATINANDO';
     fault: string;
+    latitude?: number;
+    longitude?: number;
+    heading?: number;
 }
 
 export const ENGINE_MAX_RPM = 8000;
@@ -33,4 +36,7 @@ export const INITIAL_TELEMETRY: ReceptionData = {
     tc: true, // Estado padrão do TC
     wheelSpin: 'ESTÁVEL',
     fault: 'OK',
+    latitude: -23.55052,
+    longitude: -46.633308,
+    heading: 45,
 };

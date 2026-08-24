@@ -63,6 +63,11 @@
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE"
       },
+      "config": {
+        "googleMaps": {
+          "apiKey": "SUA_CHAVE_API_AQUI"
+        }
+      },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.RanTech_Mobile",

@@ -1,6 +1,6 @@
-import { Ionicons } from '@expo/vector-icons'; // Import vector icons
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { Tabs, useRouter } from 'expo-router';
+import React, { useRef } from 'react';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { BORDER_RADIUS, COLORS, SPACING, TYPOGRAPHY } from '@/constants/global-styles';
@@ -8,12 +8,30 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
+  const lastTapRef = useRef<number>(0);
+
+  const handleMapsPress = (e: any, propsOnPress?: (e: any) => void) => {
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300; // Tempo máximo em ms entre os toques
+
+    if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+      // Duplo clique detectado: aciona o "segredo"
+      lastTapRef.current = 0;
+      router.push('/realMap');
+    } else {
+      // Clique simples normal: navega para a aba de mapas padrão
+      lastTapRef.current = now;
+      if (propsOnPress) {
+        propsOnPress(e);
+      }
+    }
+  };
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-
         tabBarButton: HapticTab,
         tabBarActiveTintColor: COLORS.tabBar.text,
         tabBarInactiveTintColor: COLORS.tabBar.inactiveText,
@@ -21,7 +39,7 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: COLORS.tabBar.background,
           borderTopWidth: 0,
-          height: 74,
+          height: 60,
           paddingTop: SPACING.sm,
           paddingBottom: SPACING.sm,
           paddingHorizontal: SPACING.sm,
@@ -32,7 +50,7 @@ export default function TabLayout() {
           shadowOpacity: 0,
         },
         tabBarItemStyle: {
-          borderRadius: BORDER_RADIUS.lg,
+          borderRadius: BORDER_RADIUS.xl,
           marginHorizontal: SPACING.xs,
           marginVertical: SPACING.xs,
           justifyContent: 'center',
@@ -53,6 +71,8 @@ export default function TabLayout() {
           ),
         }}
       />
+
+      {/* Tab de Mapas com suporte a duplo toque secreto */}
       <Tabs.Screen
         name="maps"
         options={{
@@ -60,8 +80,15 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="map-outline" size={size || 20} color={color} />
           ),
+          tabBarButton: (props) => (
+            <HapticTab
+              {...props}
+              onPress={(e) => handleMapsPress(e, props.onPress)}
+            />
+          ),
         }}
       />
+
       <Tabs.Screen
         name="datalogger"
         options={{
@@ -89,7 +116,6 @@ export default function TabLayout() {
           ),
         }}
       />
-
     </Tabs>
   );
 }
