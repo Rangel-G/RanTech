@@ -46,6 +46,14 @@ export function SettingsScreen() {
     const [obdSettings, setObdSettings] = useState<ObdSettings>(DEFAULT_OBD_SETTINGS);
     const [gearSettings, setGearSettings] = useState<GearSettings>(DEFAULT_GEAR_SETTINGS);
 
+    // Estado do Mapa e Grupo
+    const [mapSettings, setMapSettings] = useState({
+        pointerColor: '#00ffff',
+        groupName: '',
+        groupPassword: '',
+        activeGroup: null as string | null,
+    });
+
     // Dados Globais do LED via Contexto
     const {
         ledSettings,
@@ -90,6 +98,30 @@ export function SettingsScreen() {
         Alert.alert('Sucesso', 'Relações de Marcha salvas!');
     };
 
+    // Handlers do Grupo / Mapa
+    const handleCreateGroup = () => {
+        if (!mapSettings.groupName.trim() || !mapSettings.groupPassword.trim()) {
+            Alert.alert('Erro', 'Informe o nome e a senha para criar um grupo.');
+            return;
+        }
+        setMapSettings((prev) => ({ ...prev, activeGroup: prev.groupName }));
+        Alert.alert('Sucesso', `Grupo "${mapSettings.groupName}" criado com sucesso!`);
+    };
+
+    const handleJoinGroup = () => {
+        if (!mapSettings.groupName.trim() || !mapSettings.groupPassword.trim()) {
+            Alert.alert('Erro', 'Informe o nome e a senha do grupo.');
+            return;
+        }
+        setMapSettings((prev) => ({ ...prev, activeGroup: prev.groupName }));
+        Alert.alert('Sucesso', `Você entrou no grupo "${mapSettings.groupName}"!`);
+    };
+
+    const handleLeaveGroup = () => {
+        setMapSettings((prev) => ({ ...prev, activeGroup: null, groupName: '', groupPassword: '' }));
+        Alert.alert('Sucesso', 'Você saiu do grupo.');
+    };
+
     const renderOptionButtonList = (
         items: Array<{ value: string; label: string }>,
         selectedValue: string,
@@ -132,8 +164,72 @@ export function SettingsScreen() {
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+            {/* Configurações do Mapa e Grupo */}
+            <ExpandablePanel
+                title="Configurações do Mapa & Grupo"
+                icon="🗺️"
+                status={mapSettings.activeGroup ? `🟢 ${mapSettings.activeGroup}` : 'Sem Grupo'}
+                defaultExpanded
+            >
+                <View style={styles.fieldContainer}>
+                    <Text style={styles.fieldLabel}>Cor do Pointer Pessoal</Text>
+                    <View style={styles.colorPickerWrapper}>
+                        <TextInput
+                            style={[styles.textInput, styles.colorInput]}
+                            value={mapSettings.pointerColor}
+                            onChangeText={(text) => setMapSettings({ ...mapSettings, pointerColor: text })}
+                            placeholder="#00FFFF"
+                            placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                        />
+                        <View style={[styles.colorPreview, { backgroundColor: mapSettings.pointerColor }]} />
+                    </View>
+                </View>
+
+                <View style={styles.fieldContainer}>
+                    <Text style={styles.fieldLabel}>Nome do Grupo</Text>
+                    <TextInput
+                        style={styles.textInput}
+                        value={mapSettings.groupName}
+                        onChangeText={(text) => setMapSettings({ ...mapSettings, groupName: text })}
+                        placeholder="Ex: Serra do Mar Rally"
+                        placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                        editable={!mapSettings.activeGroup}
+                    />
+                </View>
+
+                <View style={styles.fieldContainer}>
+                    <Text style={styles.fieldLabel}>Senha do Grupo</Text>
+                    <TextInput
+                        style={styles.textInput}
+                        value={mapSettings.groupPassword}
+                        onChangeText={(text) => setMapSettings({ ...mapSettings, groupPassword: text })}
+                        placeholder="••••••••"
+                        placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                        secureTextEntry
+                        editable={!mapSettings.activeGroup}
+                    />
+                </View>
+
+                {mapSettings.activeGroup ? (
+                    <View style={styles.buttonRow}>
+                        <Pressable style={[styles.actionButton, styles.leaveButton]} onPress={handleLeaveGroup}>
+                            <Text style={styles.leaveButtonText}>🚪 Sair do Grupo</Text>
+                        </Pressable>
+                    </View>
+                ) : (
+                    <View style={styles.buttonRow}>
+                        <Pressable style={[styles.actionButton, styles.saveButton]} onPress={handleCreateGroup}>
+                            <Text style={styles.buttonText}>➕ Criar Grupo</Text>
+                        </Pressable>
+                        <Pressable style={[styles.actionButton, styles.connectButton]} onPress={handleJoinGroup}>
+                            <Text style={styles.buttonText}>🔑 Entrar no Grupo</Text>
+                        </Pressable>
+                    </View>
+                )}
+            </ExpandablePanel>
+
             {/* Configuração OBD-II */}
-            <ExpandablePanel title="Configurar Conexão" icon="🔌" status={obdSettings.port} defaultExpanded>
+            <ExpandablePanel title="Configurar Conexão" icon="🔌" status={obdSettings.port}>
                 <View style={styles.fieldContainer}>
                     <Text style={styles.fieldLabel}>Tipo de Conexão</Text>
                     {renderOptionButtonList(
@@ -574,8 +670,18 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0, 255, 100, 0.15)',
         borderColor: 'rgba(0, 255, 100, 0.5)',
     },
+    leaveButton: {
+        backgroundColor: 'rgba(255, 50, 50, 0.15)',
+        borderColor: 'rgba(255, 80, 80, 0.5)',
+    },
     buttonText: {
         color: '#00ffaa',
+        fontSize: 13,
+        fontWeight: '700',
+        letterSpacing: 0.3,
+    },
+    leaveButtonText: {
+        color: '#ff6666',
         fontSize: 13,
         fontWeight: '700',
         letterSpacing: 0.3,
