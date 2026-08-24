@@ -1,48 +1,61 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import Animated, {
+    useAnimatedProps,
+    useSharedValue,
+    withSpring,
+} from 'react-native-reanimated';
 import Svg, {
     Circle,
     ClipPath,
     Defs,
     Ellipse,
-    FeComposite,
-    FeFlood,
-    FeGaussianBlur,
-    FeOffset,
-    Filter,
     G,
     Path,
     RadialGradient,
     Stop,
 } from 'react-native-svg';
 
-interface TempGaugeProps {
+// Componente G animável pelo Reanimated
+const AnimatedG = Animated.createAnimatedComponent(G);
 
+interface TempGaugeProps {
     temperature?: number;
+    maxTemp?: number;
 }
 
 export function RpmTempGaugeCard({
-
     temperature = 90,
+    maxTemp = 100,
 }: TempGaugeProps) {
-    // Cálculo do ângulo da agulha (-170 deg até ~50 deg)
     const minAngle = -170;
     const maxAngle = 50;
-    const needleRotation = minAngle + (temperature / 100) * (maxAngle - minAngle);
+
+    // Valor compartilhado para rotação
+    const needleRotation = useSharedValue(minAngle);
+
+    useEffect(() => {
+        const percentage = Math.min(Math.max(temperature / maxTemp, 0), 1);
+        const targetAngle = minAngle + percentage * (maxAngle - minAngle);
+
+        needleRotation.value = withSpring(targetAngle, {
+            damping: 15,
+            stiffness: 90,
+        });
+    }, [temperature, maxTemp, needleRotation]);
+
+    // Rotação pura com coordenadas de centro do SVG (25.797, 25.797)
+    const animatedNeedleProps = useAnimatedProps(() => ({
+        rotation: needleRotation.value,
+        originX: 25.797,
+        originY: 25.797,
+    }));
 
     return (
         <View style={styles.container}>
             <View style={styles.svgWrapper}>
                 <Svg viewBox="0 0 52.917 52.917" style={styles.svg}>
                     <Defs>
-                        <Filter id="accel-filter208" x="-0.3" y="-0.24" width="1.6" height="1.48">
-                            <FeFlood floodColor="rgb(0,0,0)" in="SourceGraphic" result="flood" />
-                            <FeGaussianBlur in="SourceGraphic" stdDeviation="0.5" result="blur" />
-                            <FeOffset dx="0" dy="0" in="blur" result="offset" />
-                            <FeComposite in="flood" in2="offset" operator="in" result="comp1" />
-                            <FeComposite in="SourceGraphic" in2="comp1" result="fbSourceGraphic" />
-                        </Filter>
-
                         <RadialGradient
                             id="accel-radialGradient211"
                             cx="52.917"
@@ -54,14 +67,6 @@ export function RpmTempGaugeCard({
                             <Stop stopOpacity="0" offset="0.7483" />
                             <Stop offset="1" stopColor="#000" />
                         </RadialGradient>
-
-                        <Filter id="accel-filter3" x="-0.16164" y="-0.18636" width="1.3233" height="1.3727">
-                            <FeFlood floodColor="rgb(0,0,0)" in="SourceGraphic" result="flood" />
-                            <FeGaussianBlur in="SourceGraphic" stdDeviation="0.5" result="blur" />
-                            <FeOffset dx="0" dy="0" in="blur" result="offset" />
-                            <FeComposite in="flood" in2="offset" operator="in" result="comp1" />
-                            <FeComposite in="SourceGraphic" in2="comp1" result="comp2" />
-                        </Filter>
 
                         <ClipPath id="accel-clipPath24">
                             <Circle cx="25.797" cy="25.797" r="26.458" fill="none" stroke="#000" strokeWidth="1.3229" />
@@ -96,25 +101,24 @@ export function RpmTempGaugeCard({
                         <Circle transform="rotate(255.38)" cx="-31.474" cy="18.449" r="0.13229" fill="#e31ce0" />
 
                         <G fill="#fff" strokeWidth="0">
-                            <Path transform="matrix(-.5275 -.091294 .091294 -.5275 43.603 76.128)" d="m48.937 46.794-3.6952-6.439 7.424 0.01933z" filter="url(#accel-filter3)" />
-                            <Path transform="matrix(-.41118 -.34281 .34281 -.41118 16.054 78.288)" d="m48.937 46.794-3.6952-6.439 7.424 0.01933z" filter="url(#accel-filter3)" />
-                            <Path transform="matrix(-.18469 -.50248 .50248 -.18469 -8.8837 66.384)" d="m48.937 46.794-3.6952-6.439 7.424 0.01933z" filter="url(#accel-filter3)" />
-                            <Path transform="matrix(.091294 -.5275 .5275 .091294 -24.529 43.606)" d="m48.937 46.794-3.6952-6.439 7.424 0.01933z" filter="url(#accel-filter3)" />
-                            <Path transform="matrix(.34281 -.41118 .41118 .34281 -26.689 16.057)" d="m48.937 46.794-3.6952-6.439 7.424 0.01933z" filter="url(#accel-filter3)" />
-                            <Path transform="matrix(.50248 -.18469 .18469 .50248 -14.785 -8.8809)" d="m48.937 46.794-3.6952-6.439 7.424 0.01933z" filter="url(#accel-filter3)" />
-                            <Path transform="matrix(.5275 .091294 -.091294 .5275 7.9933 -24.526)" d="m48.937 46.794-3.6952-6.439 7.424 0.01933z" filter="url(#accel-filter3)" />
-                            <Path transform="matrix(.41118 .34281 -.34281 .41118 35.542 -26.686)" d="m48.937 46.794-3.6952-6.439 7.424 0.01933z" filter="url(#accel-filter3)" />
+                            <Path transform="matrix(-.5275 -.091294 .091294 -.5275 43.603 76.128)" d="m48.937 46.794-3.6952-6.439 7.424 0.01933z" />
+                            <Path transform="matrix(-.41118 -.34281 .34281 -.41118 16.054 78.288)" d="m48.937 46.794-3.6952-6.439 7.424 0.01933z" />
+                            <Path transform="matrix(-.18469 -.50248 .50248 -.18469 -8.8837 66.384)" d="m48.937 46.794-3.6952-6.439 7.424 0.01933z" />
+                            <Path transform="matrix(.091294 -.5275 .5275 .091294 -24.529 43.606)" d="m48.937 46.794-3.6952-6.439 7.424 0.01933z" />
+                            <Path transform="matrix(.34281 -.41118 .41118 .34281 -26.689 16.057)" d="m48.937 46.794-3.6952-6.439 7.424 0.01933z" />
+                            <Path transform="matrix(.50248 -.18469 .18469 .50248 -14.785 -8.8809)" d="m48.937 46.794-3.6952-6.439 7.424 0.01933z" />
+                            <Path transform="matrix(.5275 .091294 -.091294 .5275 7.9933 -24.526)" d="m48.937 46.794-3.6952-6.439 7.424 0.01933z" />
+                            <Path transform="matrix(.41118 .34281 -.34281 .41118 35.542 -26.686)" d="m48.937 46.794-3.6952-6.439 7.424 0.01933z" />
                         </G>
 
-                        {/* Agulha Rotativa do RPM */}
-                        <G transform={`rotate(${needleRotation} 25.797 25.797)`}>
+                        {/* Agulha Rotativa Animada */}
+                        <AnimatedG animatedProps={animatedNeedleProps}>
                             <Path
                                 d="m23.797 4.3315-1.9999 2.9999 1.9999 3.0001 2.0001 4 2.0001-4 1.9999-3.0001-1.9999-2.9999zm0.60007 0.84667 2.8-1e-6 1e-6 4.2001-2.8 1e-6z"
-                                fill="#fff"
-                                filter="url(#accel-filter208)"
+                                fill="#ffffff"
                                 strokeWidth="0"
                             />
-                        </G>
+                        </AnimatedG>
                     </G>
                 </Svg>
 

@@ -1,5 +1,5 @@
 
-import { SpeedGaugeCard } from '@/components/ui/speedGauge';
+import { RpmGaugeCard } from '@/components/ui/rpmGauge';
 import { RpmTempGaugeCard } from '@/components/ui/tempGauge';
 import COLORS from '@/constants/global-styles';
 import { useReception } from '@/services/reception';
@@ -13,9 +13,10 @@ export function SportDashboard() {
         <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
             <View style={styles.dashboard}>
                 {/* Velocímetro/RPM Esquerdo */}
-                <SpeedGaugeCard
+                <RpmGaugeCard
                     speed={data.speed}
-                    maxSpeed={240}
+                    rpm={data.rpm}
+                    maxRpm={data.rpmMax}
                     gear={data.gear || 'N'}
                     showShiftLight={data.rpm > 6500}
                 />
