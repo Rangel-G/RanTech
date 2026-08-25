@@ -1,7 +1,7 @@
 import { RealTimeMap } from '@/components/realTimeMaps';
 import { useGroup } from '@/contexts/group-context';
 import { useReception } from '@/hooks/useReception';
-import { GroupMember, GroupService } from '@/services/group-service';
+import { GroupMember, GroupService } from '@/services/firebase/group-service';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';

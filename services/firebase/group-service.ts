@@ -1,5 +1,5 @@
 import { get, onValue, ref, remove, set, update } from 'firebase/database';
-import { rtdb } from './firebase/firebase';
+import { rtdb } from './firebase';
 
 export interface GroupMember {
     userId: string;
