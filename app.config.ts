@@ -14,6 +14,7 @@ export default {
     },
     ios: {
       supportsTablet: true,
+      bundleIdentifier: "com.rangel.rantech",
       infoPlist: {
         NSBluetoothAlwaysUsageDescription: "O aplicativo precisa do Bluetooth para se conectar à Fita LED e ao leitor OBDII."
       }
@@ -56,9 +57,15 @@ export default {
           backgroundColor: "#000000"
         }
       ],
-      "@react-native-google-signin/google-signin"
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          iosUrlScheme: "com.googleusercontent.apps.SEU_IOS_CLIENT_ID_INVERTIDO"
+        }
+      ]
     ],
     android: {
+      googleServicesFile: "./google-services.json",
       adaptiveIcon: {
         foregroundImage: "./assets/icon.png",
         backgroundColor: "#E6F4FE"
@@ -70,7 +77,7 @@ export default {
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
-      package: "com.anonymous.rantechmobile",
+      package: "com.rangel.rantech",
       permissions: [
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",

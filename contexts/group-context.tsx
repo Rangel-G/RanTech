@@ -1,8 +1,13 @@
+// contexts/group-context.tsx
 import { auth } from '@/services/firebase';
 import { GroupService } from '@/services/group-service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
+import {
+    GoogleSignin,
+    isErrorWithCode,
+    isSuccessResponse,
+    statusCodes,
+} from '@react-native-google-signin/google-signin';
 import {
     GoogleAuthProvider,
     onAuthStateChanged,
@@ -12,16 +17,14 @@ import {
 } from 'firebase/auth';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-// Necessário para fechar o navegador web de autenticação corretamente
-WebBrowser.maybeCompleteAuthSession();
-
 interface GroupContextType {
     user: User | null;
     userId: string | null;
     activeGroup: string | null;
     userName: string;
     pointerColor: string;
-    promptGoogleLogin: () => void;
+    isAuthenticating: boolean;
+    promptGoogleLogin: () => Promise<void>;
     logout: () => Promise<void>;
     saveMapSettings: (color: string, name: string) => Promise<void>;
     createGroup: (groupName: string, password: string) => Promise<void>;
@@ -31,29 +34,20 @@ interface GroupContextType {
 
 const GroupContext = createContext<GroupContextType>({} as GroupContextType);
 
+// IMPORTANTE: webClientId = OAuth Client ID tipo "Web application" do Google Cloud Console
+// (o mesmo vinculado ao projeto Firebase). NÃO é o Web App do Firebase.
+GoogleSignin.configure({
+    webClientId: '4155845801-6lu7s8nhlu1ec34jremb3vm100kh7l58.apps.googleusercontent.com',
+    offlineAccess: false,
+});
+
 export function GroupProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [activeGroup, setActiveGroup] = useState<string | null>(null);
     const [userName, setUserName] = useState<string>('Piloto');
     const [pointerColor, setPointerColor] = useState<string>('#00ffff');
+    const [isAuthenticating, setIsAuthenticating] = useState(false);
 
-    // Configuração do provedor Google para Expo Go
-    const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-        clientId: '4155845801-6lu7s8nhlu1ec34jremb3vm100kh7l58.apps.googleusercontent.com',
-    });
-
-    // Escuta o retorno do login no navegador
-    useEffect(() => {
-        if (response?.type === 'success') {
-            const { id_token } = response.params;
-            const credential = GoogleAuthProvider.credential(id_token);
-            signInWithCredential(auth, credential).catch((err) => {
-                console.error('Erro ao autenticar no Firebase com ID Token:', err);
-            });
-        }
-    }, [response]);
-
-    // Monitora sessão ativa no Firebase Auth
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             setUser(currentUser);
@@ -75,7 +69,52 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
         return () => unsubscribe();
     }, []);
 
+    const promptGoogleLogin = async () => {
+        setIsAuthenticating(true);
+        try {
+            await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+            const response = await GoogleSignin.signIn();
+
+            if (!isSuccessResponse(response)) {
+                // Usuário cancelou o fluxo
+                return;
+            }
+
+            const { idToken } = response.data;
+            if (!idToken) {
+                throw new Error('Google não retornou idToken.');
+            }
+
+            const credential = GoogleAuthProvider.credential(idToken);
+            await signInWithCredential(auth, credential);
+        } catch (error) {
+            if (isErrorWithCode(error)) {
+                switch (error.code) {
+                    case statusCodes.SIGN_IN_CANCELLED:
+                        break;
+                    case statusCodes.IN_PROGRESS:
+                        console.warn('Login Google já em andamento.');
+                        break;
+                    case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+                        console.warn('Google Play Services indisponível.');
+                        break;
+                    default:
+                        console.error('Erro Google Sign-In:', error.code, error.message);
+                }
+            } else {
+                console.error('Erro inesperado no login Google:', error);
+            }
+        } finally {
+            setIsAuthenticating(false);
+        }
+    };
+
     const logout = async () => {
+        try {
+            await GoogleSignin.signOut();
+        } catch (error) {
+            console.warn('Erro ao deslogar do Google Sign-In:', error);
+        }
         await signOut(auth);
         setActiveGroup(null);
     };
@@ -118,7 +157,8 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
                 activeGroup,
                 userName,
                 pointerColor,
-                promptGoogleLogin: () => promptAsync(),
+                isAuthenticating,
+                promptGoogleLogin,
                 logout,
                 saveMapSettings,
                 createGroup,
