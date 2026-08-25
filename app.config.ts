@@ -1,0 +1,90 @@
+export default {
+  expo: {
+    name: "RanTech Mobile",
+    slug: "rantech_mobile",
+    version: "1.0.0",
+    icon: "./assets/icon.png",
+    orientation: "default",
+    scheme: "rantechmobile",
+    userInterfaceStyle: "dark",
+    splash: {
+      image: "./assets/splash.png",
+      backgroundColor: "#000000",
+      resizeMode: "contain"
+    },
+    ios: {
+      supportsTablet: true,
+      infoPlist: {
+        NSBluetoothAlwaysUsageDescription: "O aplicativo precisa do Bluetooth para se conectar à Fita LED e ao leitor OBDII."
+      }
+    },
+    androidStatusBar: {
+      hidden: true,
+      translucent: true
+    },
+    androidNavigationBar: {
+      hidden: true,
+      visible: "sticky-immersive",
+      translucent: true
+    },
+    plugins: [
+      "expo-router",
+      [
+        "react-native-ble-plx",
+        {
+          isBackgroundEnabled: true,
+          modes: [
+            "peripheral",
+            "central"
+          ],
+          bluetoothAlwaysPermission: "O aplicativo precisa do Bluetooth para se conectar à Fita LED e ao leitor OBDII."
+        }
+      ],
+      [
+        "expo-navigation-bar",
+        {
+          visibility: "hidden",
+          behavior: "inset-touch",
+          backgroundColor: "#000000"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          image: "./assets/splash.png",
+          resizeMode: "contain",
+          backgroundColor: "#000000"
+        }
+      ],
+      "@react-native-google-signin/google-signin"
+    ],
+    android: {
+      adaptiveIcon: {
+        foregroundImage: "./assets/icon.png",
+        backgroundColor: "#E6F4FE"
+      },
+      config: {
+        googleMaps: {
+          apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || process.env.GOOGLE_MAPS_API_KEY
+        }
+      },
+      edgeToEdgeEnabled: true,
+      predictiveBackGestureEnabled: false,
+      package: "com.anonymous.rantechmobile",
+      permissions: [
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    web: {
+      output: "static"
+    },
+    experiments: {
+      typedRoutes: true,
+      reactCompiler: true
+    }
+  }
+};
