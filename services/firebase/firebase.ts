@@ -1,6 +1,7 @@
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
+import { getFirestore } from 'firebase/firestore'; // Adicionado
 
 // Substitua com as suas credenciais do Firebase Console
 const firebaseConfig = {
@@ -14,9 +15,8 @@ const firebaseConfig = {
     measurementId: "G-95B4W4F7BM"
 };
 
-// Evita reinicializar o app durante Hot Reloading do React Native
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Instância do Realtime Database
 export const rtdb = getDatabase(app);
 export const auth = getAuth(app);
+export const db = getFirestore(app);

@@ -1,6 +1,6 @@
 import { ChannelBox } from '@/components/ui/channel-box';
 import { RpmRamp } from '@/components/ui/rpmRamp';
-import { useReception } from '@/services/reception';
+import { useReception } from '@/hooks/useReception';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 

@@ -1,6 +1,7 @@
 import { ExpandablePanel } from '@/components/ui/expandable-panel';
 import { useGroup } from '@/contexts/group-context';
 import { useLed } from '@/contexts/led-context';
+import { UserService } from '@/services/firebase/user-service';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -100,7 +101,10 @@ export function SettingsScreen() {
 
     const handleSaveObd = async () => {
         await SettingsStorage.saveObdSettings(obdSettings);
-        Alert.alert('Sucesso', 'Configurações de Conexão OBD salvas!');
+        if (user?.uid) {
+            await UserService.saveUserSettings(user.uid, { obd: obdSettings });
+        }
+        Alert.alert('Sucesso', 'Configurações OBD salvas!');
     };
 
     const handleSaveLed = async () => {
@@ -109,18 +113,33 @@ export function SettingsScreen() {
             return;
         }
         await updateLedSettings(ledSettings);
+
+        if (user?.uid) {
+            await UserService.saveUserSettings(user.uid, { led: ledSettings });
+        }
         Alert.alert('Sucesso', 'Configurações do LED salvas!');
     };
 
     const handleSaveGear = async () => {
         await SettingsStorage.saveGearSettings(gearSettings);
+        if (user?.uid) {
+            await UserService.saveUserSettings(user.uid, { gear: gearSettings });
+        }
         Alert.alert('Sucesso', 'Relações de Marcha salvas!');
     };
 
-    // Handlers do Perfil e Grupo
     const handleSaveMapSettings = async () => {
         await saveMapSettings(mapColor, pilotName);
-        Alert.alert('Sucesso', 'Configurações do Perfil/Mapa salvas!');
+        if (user?.uid) {
+            await UserService.saveUserSettings(user.uid, {
+                profile: {
+                    pilotName,
+                    pointerColor: mapColor,
+                    activeGroup,
+                }
+            });
+        }
+        Alert.alert('Sucesso', 'Configurações do Perfil salvas!');
     };
 
     const handleCreateGroup = async () => {

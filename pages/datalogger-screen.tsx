@@ -1,5 +1,5 @@
 import { ProgressBar } from '@/components/ui/progress-bar';
-import { useReception } from '@/services/reception';
+import { useReception } from '@/hooks/useReception';
 import { DEFAULT_LED_SETTINGS, SettingsStorage } from '@/services/storage/settings-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';

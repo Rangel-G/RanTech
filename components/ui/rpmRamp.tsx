@@ -1,4 +1,4 @@
-import { useReception } from '@/services/reception';
+import { useReception } from '@/hooks/useReception';
 import { Audio } from 'expo-av';
 import React, { useEffect, useRef } from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';

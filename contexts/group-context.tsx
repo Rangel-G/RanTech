@@ -1,5 +1,5 @@
 // contexts/group-context.tsx
-import { auth } from '@/services/firebase';
+import { auth } from '@/services/firebase/firebase';
 import { GroupService } from '@/services/group-service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {

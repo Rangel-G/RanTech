@@ -2,7 +2,7 @@
 import { RpmGaugeCard } from '@/components/ui/rpmGauge';
 import { RpmTempGaugeCard } from '@/components/ui/tempGauge';
 import COLORS from '@/constants/global-styles';
-import { useReception } from '@/services/reception';
+import { useReception } from '@/hooks/useReception';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
