@@ -1,43 +1,71 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
-# dependencies
+# ==========================================
+# Dependências & Expo
+# ==========================================
 node_modules/
-
-# Expo
 .expo/
 dist/
 web-build/
-expo-env.d.ts
+*.expo/*
 
-# Native
-.kotlin/
-*.orig.*
+# ==========================================
+# Variáveis de Ambiente & Credenciais
+# ==========================================
+.env
+.env.*
+!.env.example
+
+# Arquivos sensíveis do Firebase/Google (não suba chaves privadas para o Git)
+google-services.json
+GoogleService-Info.plist
+
+# Chaves de Assinatura (Keystores & Certificados)
+*.keystore
 *.jks
-*.p8
 *.p12
 *.key
+*.pem
 *.mobileprovision
 
-# Metro
+# ==========================================
+# Artifacts de Build Nativo - Android
+# ==========================================
+android/.gradle/
+android/app/build/
+android/build/
+android/captures/
+android/.cxx/
+*.apk
+*.aab
+
+# ==========================================
+# Artifacts de Build Nativo - iOS
+# ==========================================
+ios/Pods/
+ios/build/
+ios/DerivedData/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# ==========================================
+# Logs & Cache
+# ==========================================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 .metro-health-check*
 
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
+# ==========================================
+# Arquivos de Sistema & IDEs
+# ==========================================
 .DS_Store
-*.pem
-
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-app-example
-
-# generated native folders
-/ios
-/android
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
