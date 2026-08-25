@@ -1,4 +1,5 @@
 import { RealTimeMap } from '@/components/realTimeMaps';
+import { RpmGaugeCard } from '@/components/ui/rpmGauge';
 import { useGroup } from '@/contexts/group-context';
 import { useReception } from '@/hooks/useReception';
 import { GroupMember, GroupService } from '@/services/firebase/group-service';
@@ -97,6 +98,19 @@ export default function RealMapScreen() {
                 userColor={pointerColor} // Repassa a cor configurada para o seu ponteiro
                 members={members}
             />
+
+            <View style={styles.rpmGauge}>
+                {/* Velocímetro/RPM Esquerdo */}
+                <RpmGaugeCard
+                    speed={data.speed}
+                    rpm={data.rpm}
+                    maxRpm={data.rpmMax}
+                    gear={data.gear || 'N'}
+                    showShiftLight={data.rpm > 6500}
+                />
+
+
+            </View>
         </View>
     );
 }
@@ -128,5 +142,11 @@ const styles = StyleSheet.create({
         color: '#8be8ff',
         fontSize: 14,
         fontWeight: 'bold',
+    },
+    rpmGauge: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        alignItems: 'center',
+        marginVertical: 20,
     },
 });

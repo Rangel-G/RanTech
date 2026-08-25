@@ -2,6 +2,7 @@ export default {
   expo: {
     name: "RanTech Mobile",
     slug: "rantech_mobile",
+    owner: "rangelg",
     version: "1.0.0",
     icon: "./assets/icon.png",
     orientation: "default",
@@ -92,6 +93,11 @@ export default {
     experiments: {
       typedRoutes: true,
       reactCompiler: true
+    },
+    extra: {
+      eas: {
+        projectId: "3279657a-969d-43cc-bee1-c6ccf7797e67",
+      }
     }
   }
 };

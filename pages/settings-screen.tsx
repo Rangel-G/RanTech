@@ -6,14 +6,16 @@ import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Modal,
     Pressable,
     ScrollView,
     StyleSheet,
     Switch,
     Text,
     TextInput,
-    View,
+    View
 } from 'react-native';
+import ColorPicker, { HueSlider, Panel1 } from 'reanimated-color-picker';
 import {
     DEFAULT_GEAR_SETTINGS,
     DEFAULT_OBD_SETTINGS,
@@ -23,6 +25,23 @@ import {
 } from '../services/storage/settings-storage';
 
 export function SettingsScreen() {
+
+    const [colorModalVisible, setColorModalVisible] = useState(false);
+    const [currentColorKey, setCurrentColorKey] = useState<'map' | 'normal' | 'redline' | null>(null);
+    const [selectedColor, setSelectedColor] = useState('#00FFFF');
+
+    const openColorPicker = (key: 'map' | 'normal' | 'redline', initialColor: string) => {
+        setCurrentColorKey(key);
+        setSelectedColor(initialColor || '#00FFFF');
+        setColorModalVisible(true);
+    };
+
+    const handleSelectColor = ({ hex }: { hex: string }) => {
+        if (currentColorKey === 'map') setMapColor(hex);
+        if (currentColorKey === 'normal') updateLedSettings({ ...ledSettings, colorNormal: hex });
+        if (currentColorKey === 'redline') updateLedSettings({ ...ledSettings, colorRedline: hex });
+    };
+
     // Contexto de Grupo e Autenticação (Unificado)
     const {
         user,
@@ -273,11 +292,14 @@ export function SettingsScreen() {
                         <TextInput
                             style={[styles.textInput, styles.colorInput]}
                             value={mapColor}
-                            onChangeText={setMapColor}
+                            editable={false}
                             placeholder="#00FFFF"
                             placeholderTextColor="rgba(255, 255, 255, 0.3)"
                         />
-                        <View style={[styles.colorPreview, { backgroundColor: mapColor || '#00ffff' }]} />
+                        <Pressable
+                            style={[styles.colorPreview, { backgroundColor: mapColor || '#00ffff' }]}
+                            onPress={() => openColorPicker('map', mapColor)}
+                        />
                     </View>
                 </View>
 
@@ -513,24 +535,31 @@ export function SettingsScreen() {
                             <TextInput
                                 style={[styles.textInput, styles.colorInput]}
                                 value={ledSettings.colorNormal}
-                                onChangeText={(text) => updateLedSettings({ ...ledSettings, colorNormal: text })}
+                                editable={false}
                                 placeholder="#0084ff"
                                 placeholderTextColor="rgba(255, 255, 255, 0.3)"
                             />
-                            <View style={[styles.colorPreview, { backgroundColor: ledSettings.colorNormal }]} />
+                            <Pressable
+                                style={[styles.colorPreview, { backgroundColor: ledSettings.colorNormal || '#0084ff' }]}
+                                onPress={() => openColorPicker('normal', ledSettings.colorNormal)}
+                            />
                         </View>
                     </View>
+
                     <View style={styles.halfField}>
                         <Text style={styles.fieldLabel}>Cor Redline</Text>
                         <View style={styles.colorPickerWrapper}>
                             <TextInput
                                 style={[styles.textInput, styles.colorInput]}
                                 value={ledSettings.colorRedline}
-                                onChangeText={(text) => updateLedSettings({ ...ledSettings, colorRedline: text })}
+                                editable={false}
                                 placeholder="#ff0000"
                                 placeholderTextColor="rgba(255, 255, 255, 0.3)"
                             />
-                            <View style={[styles.colorPreview, { backgroundColor: ledSettings.colorRedline }]} />
+                            <Pressable
+                                style={[styles.colorPreview, { backgroundColor: ledSettings.colorRedline || '#ff0000' }]}
+                                onPress={() => openColorPicker('redline', ledSettings.colorRedline)}
+                            />
                         </View>
                     </View>
                 </View>
@@ -619,6 +648,22 @@ export function SettingsScreen() {
                     </Pressable>
                 </View>
             </ExpandablePanel>
+            <Modal visible={colorModalVisible} animationType="slide" transparent>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        <Text style={styles.modalTitle}>Selecione a Cor</Text>
+
+                        <ColorPicker style={{ width: '100%', gap: 16 }} value={selectedColor} onChange={handleSelectColor}>
+                            <Panel1 style={{ height: 200, borderRadius: 8 }} />
+                            <HueSlider style={{ borderRadius: 8 }} />
+                        </ColorPicker>
+
+                        <Pressable style={styles.closeModalButton} onPress={() => setColorModalVisible(false)}>
+                            <Text style={styles.buttonText}>✓ Confirmar</Text>
+                        </Pressable>
+                    </View>
+                </View>
+            </Modal>
         </ScrollView>
     );
 }
@@ -740,22 +785,6 @@ const styles = StyleSheet.create({
         minWidth: 110,
         paddingVertical: 10,
     },
-    colorPickerWrapper: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-    },
-    colorInput: {
-        flex: 1,
-        textTransform: 'uppercase',
-    },
-    colorPreview: {
-        width: 30,
-        height: 30,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.3)',
-    },
     toggleRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -799,5 +828,68 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '700',
         letterSpacing: 0.3,
+    },
+    colorPickerWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    colorInput: {
+        flex: 1,
+        textTransform: 'uppercase',
+        opacity: 0.85,
+    },
+    colorPreview: {
+        width: 38,
+        height: 38,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)',
+        overflow: 'hidden',
+        position: 'relative',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    nativeColorInput: {
+        position: 'absolute',
+        top: -10,
+        left: -10,
+        width: 60,
+        height: 60,
+        opacity: 0,
+        cursor: 'pointer',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    modalContainer: {
+        width: '100%',
+        backgroundColor: '#0a121e',
+        borderRadius: 12,
+        padding: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(0, 255, 255, 0.3)',
+        alignItems: 'center',
+    },
+    modalTitle: {
+        color: '#8be8ff',
+        fontSize: 16,
+        fontWeight: '700',
+        marginBottom: 16,
+        textTransform: 'uppercase',
+    },
+    closeModalButton: {
+        marginTop: 20,
+        width: '100%',
+        paddingVertical: 12,
+        backgroundColor: 'rgba(0, 200, 150, 0.2)',
+        borderColor: 'rgba(0, 255, 200, 0.4)',
+        borderWidth: 1,
+        borderRadius: 6,
+        alignItems: 'center',
     },
 });
