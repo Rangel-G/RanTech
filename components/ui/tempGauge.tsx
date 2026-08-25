@@ -26,7 +26,7 @@ interface TempGaugeProps {
 
 export function RpmTempGaugeCard({
     temperature = 90,
-    maxTemp = 100,
+    maxTemp = 120
 }: TempGaugeProps) {
     const minAngle = -170;
     const maxAngle = 50;
