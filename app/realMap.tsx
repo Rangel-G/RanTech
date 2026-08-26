@@ -1,5 +1,4 @@
 import { RealTimeMap } from '@/components/realTimeMaps';
-import { RpmGaugeCard } from '@/components/ui/rpmGauge';
 import { useGroup } from '@/contexts/group-context';
 import { useReception } from '@/hooks/useReception';
 import { GroupMember, GroupService } from '@/services/firebase/group-service';
@@ -99,18 +98,9 @@ export default function RealMapScreen() {
                 members={members}
             />
 
-            <View style={styles.rpmGauge}>
-                {/* Velocímetro/RPM Esquerdo */}
-                <RpmGaugeCard
-                    speed={data.speed}
-                    rpm={data.rpm}
-                    maxRpm={data.rpmMax}
-                    gear={data.gear || 'N'}
-                    showShiftLight={data.rpm > 6500}
-                />
 
 
-            </View>
+
         </View>
     );
 }

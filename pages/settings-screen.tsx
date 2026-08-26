@@ -1,3 +1,4 @@
+import { ColorPickerModal } from '@/components/colorPickerModal';
 import { ExpandablePanel } from '@/components/ui/expandable-panel';
 import { useGroup } from '@/contexts/group-context';
 import { useLed } from '@/contexts/led-context';
@@ -6,7 +7,6 @@ import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    Modal,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -15,7 +15,6 @@ import {
     TextInput,
     View
 } from 'react-native';
-import ColorPicker, { HueSlider, Panel1 } from 'reanimated-color-picker';
 import {
     DEFAULT_GEAR_SETTINGS,
     DEFAULT_OBD_SETTINGS,
@@ -648,22 +647,14 @@ export function SettingsScreen() {
                     </Pressable>
                 </View>
             </ExpandablePanel>
-            <Modal visible={colorModalVisible} animationType="slide" transparent>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContainer}>
-                        <Text style={styles.modalTitle}>Selecione a Cor</Text>
 
-                        <ColorPicker style={{ width: '100%', gap: 16 }} value={selectedColor} onChange={handleSelectColor}>
-                            <Panel1 style={{ height: 200, borderRadius: 8 }} />
-                            <HueSlider style={{ borderRadius: 8 }} />
-                        </ColorPicker>
+            <ColorPickerModal
+                visible={colorModalVisible}
+                initialColor={selectedColor}
+                onSelectColor={(hex) => handleSelectColor({ hex })}
+                onClose={() => setColorModalVisible(false)}
+            />
 
-                        <Pressable style={styles.closeModalButton} onPress={() => setColorModalVisible(false)}>
-                            <Text style={styles.buttonText}>✓ Confirmar</Text>
-                        </Pressable>
-                    </View>
-                </View>
-            </Modal>
         </ScrollView>
     );
 }
