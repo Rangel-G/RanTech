@@ -5,7 +5,7 @@ export default {
     owner: "rangelg",
     version: "1.0.0",
     icon: "./assets/icon.png",
-    orientation: "default",
+    orientation: "landscape",
     scheme: "rantechmobile",
     userInterfaceStyle: "dark",
     splash: {
@@ -26,7 +26,7 @@ export default {
     },
     androidNavigationBar: {
       hidden: true,
-      visible: "sticky-immersive",
+      visible: false,
       translucent: true
     },
     plugins: [
