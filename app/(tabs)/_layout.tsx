@@ -1,10 +1,72 @@
 import { Ionicons } from '@expo/vector-icons';
+import { BottomTabBar, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Tabs, useRouter } from 'expo-router';
-import React, { useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { BORDER_RADIUS, COLORS, SPACING, TYPOGRAPHY } from '@/constants/global-styles';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+
+const AUTO_HIDE_DELAY = 4000; // 4 segundos de inatividade
+
+function CustomTabBarWrapper(props: BottomTabBarProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const resetTimer = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setIsCollapsed(false);
+    timerRef.current = setTimeout(() => {
+      setIsCollapsed(true);
+    }, AUTO_HIDE_DELAY);
+  }, []);
+
+  // Reinicia o timer ao carregar ou sempre que mudar de aba
+  useEffect(() => {
+    resetTimer();
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [props.state.index, resetTimer]);
+
+  // Animação para o Footer (desce e esconde)
+  const animatedFooterStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: withTiming(isCollapsed ? 120 : 0, { duration: 350 }) }],
+    opacity: withTiming(isCollapsed ? 0 : 1, { duration: 300 }),
+  }));
+
+  // Animação para o Botão "Abas" (sobe e aparece no canto esquerdo)
+  const animatedButtonStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: withTiming(isCollapsed ? 0 : 80, { duration: 350 }) }],
+    opacity: withTiming(isCollapsed ? 1 : 0, { duration: 300 }),
+  }));
+
+  return (
+    <View style={styles.container} pointerEvents="box-none">
+      {/* TabBar Padrão animada */}
+      <Animated.View
+        style={[styles.tabBarContainer, animatedFooterStyle]}
+        pointerEvents={isCollapsed ? 'none' : 'auto'}
+        onTouchStart={resetTimer}
+      >
+        <BottomTabBar {...props} />
+      </Animated.View>
+
+      {/* Botão Flutuante "Abas" */}
+      <Animated.View
+        style={[styles.floatingButtonContainer, animatedButtonStyle]}
+        pointerEvents={isCollapsed ? 'auto' : 'none'}
+      >
+        <Pressable style={styles.floatingButton} onPress={resetTimer}>
+          <Ionicons name="grid-outline" size={24} color={COLORS.tabBar.text} />
+          <Text style={styles.floatingButtonText}>Abas</Text>
+        </Pressable>
+      </Animated.View>
+    </View>
+  );
+}
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -13,14 +75,12 @@ export default function TabLayout() {
 
   const handleMapsPress = (e: any, propsOnPress?: (e: any) => void) => {
     const now = Date.now();
-    const DOUBLE_TAP_DELAY = 300; // Tempo máximo em ms entre os toques
+    const DOUBLE_TAP_DELAY = 300;
 
     if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
-      // Duplo clique detectado: aciona o "segredo"
       lastTapRef.current = 0;
       router.push('/realMap');
     } else {
-      // Clique simples normal: navega para a aba de mapas padrão
       lastTapRef.current = now;
       if (propsOnPress) {
         propsOnPress(e);
@@ -30,6 +90,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      tabBar={(props) => <CustomTabBarWrapper {...props} />}
       screenOptions={{
         headerShown: false,
         tabBarButton: HapticTab,
@@ -72,7 +133,6 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Tab de Mapas com suporte a duplo toque secreto */}
       <Tabs.Screen
         name="maps"
         options={{
@@ -119,3 +179,40 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  tabBarContainer: {
+    width: '100%',
+  },
+  floatingButtonContainer: {
+    position: 'absolute',
+    bottom: SPACING.md || 16,
+    left: SPACING.md || 16,
+  },
+  floatingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs || 6,
+    backgroundColor: COLORS.tabBar.background,
+    paddingVertical: SPACING.sm || 10,
+    paddingHorizontal: SPACING.md || 16,
+    borderRadius: BORDER_RADIUS.xl,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  floatingButtonText: {
+    color: COLORS.tabBar.text,
+    fontSize: TYPOGRAPHY.sizes.sm,
+    fontWeight: TYPOGRAPHY.weights.heavy,
+    textTransform: 'uppercase',
+  },
+});
