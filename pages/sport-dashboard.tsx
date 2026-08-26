@@ -1,4 +1,3 @@
-
 import { RpmGaugeCard } from '@/components/ui/rpmGauge';
 import { RpmTempGaugeCard } from '@/components/ui/tempGauge';
 import COLORS from '@/constants/global-styles';
@@ -12,19 +11,23 @@ export function SportDashboard() {
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
             <View style={styles.dashboard}>
-                {/* Velocímetro/RPM Esquerdo */}
-                <RpmGaugeCard
-                    speed={data.speed}
-                    rpm={data.rpm}
-                    maxRpm={data.rpmMax}
-                    gear={data.gear || 'N'}
-                    showShiftLight={data.rpm > 6500}
-                />
+                {/* Velocímetro/RPM (Fundo) */}
+                <View style={styles.rpmGaugeContainer}>
+                    <RpmGaugeCard
+                        speed={data.speed}
+                        rpm={data.rpm}
+                        maxRpm={data.rpmMax}
+                        gear={data.gear || 'N'}
+                        showShiftLight={data.rpm > 6500}
+                    />
+                </View>
 
-                {/* Temp Direita */}
-                <RpmTempGaugeCard
-                    temperature={data.ect || 90}
-                />
+                {/* Temperatura (Frente, canto inferior esquerdo) */}
+                <View style={styles.tempGaugeContainer}>
+                    <RpmTempGaugeCard
+                        temperature={data.ect || 90}
+                    />
+                </View>
             </View>
 
             {/* Indicadores de Status */}
@@ -55,10 +58,22 @@ const styles = StyleSheet.create({
         padding: 16,
     },
     dashboard: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        alignItems: 'center',
-        marginVertical: 20,
+        width: 340,
+        height: 280,
+        alignSelf: 'center',
+        marginVertical: 40,
+    },
+    rpmGaugeContainer: {
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        zIndex: 1,
+    },
+    tempGaugeContainer: {
+        position: 'absolute',
+        left: -10,
+        bottom: -10,
+        zIndex: 2,
     },
     statusBar: {
         flexDirection: 'row',
@@ -66,6 +81,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         borderTopWidth: 1,
         borderTopColor: COLORS.overlay.cyan.veryLow,
+        marginTop: 20,
     },
     statusItem: {
         flexDirection: 'row',

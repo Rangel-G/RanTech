@@ -17,7 +17,8 @@ export default {
       supportsTablet: true,
       bundleIdentifier: "com.rangel.rantech",
       infoPlist: {
-        NSBluetoothAlwaysUsageDescription: "O aplicativo precisa do Bluetooth para se conectar à Fita LED e ao leitor OBDII."
+        NSBluetoothAlwaysUsageDescription: "O aplicativo precisa do Bluetooth para se conectar à Fita LED e ao leitor OBDII.",
+        NSBluetoothPeripheralUsageDescription: "O aplicativo precisa do Bluetooth para se conectar à Fita LED e ao leitor OBDII."
       }
     },
     androidStatusBar: {
@@ -61,7 +62,7 @@ export default {
       [
         "@react-native-google-signin/google-signin",
         {
-          iosUrlScheme: "com.googleusercontent.apps.SEU_IOS_CLIENT_ID_INVERTIDO"
+          iosUrlScheme: "com.googleusercontent.apps.3279657a-969d-43cc-bee1-c6ccf7797e67"
         }
       ]
     ],

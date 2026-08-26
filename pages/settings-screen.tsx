@@ -242,7 +242,6 @@ export function SettingsScreen() {
                 title="Conta e Autenticação"
                 icon="👤"
                 status={user ? user.email || 'Conectado' : 'Não Logado'}
-                defaultExpanded
             >
                 {user ? (
                     <View style={styles.fieldContainer}>
@@ -272,7 +271,6 @@ export function SettingsScreen() {
                 title="Perfil e Configurações do Mapa"
                 icon="🗺️"
                 status={activeGroup ? `🟢 Grupo: ${activeGroup}` : 'Sem Grupo'}
-                defaultExpanded
             >
                 <View style={styles.fieldContainer}>
                     <Text style={styles.fieldLabel}>Nome do Piloto</Text>
@@ -421,7 +419,7 @@ export function SettingsScreen() {
 
                 <View style={styles.fieldContainer}>
                     <Text style={styles.fieldLabel}>Protocolo OBD</Text>
-                    <View style={[styles.selectContainer, styles.protocolGrid]}>
+                    <View style={[styles.selectContainer]}>
                         {protocolOptions.map((protocol) => (
                             <Pressable
                                 key={protocol.value}

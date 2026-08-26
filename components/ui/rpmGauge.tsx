@@ -16,10 +16,12 @@ import Svg, {
     Path,
     RadialGradient,
     Stop,
+    Text as SvgText
 } from 'react-native-svg';
 
-// Componente G animado para o Reanimated
+// Componentes animados para o Reanimated
 const AnimatedG = Animated.createAnimatedComponent(G);
+const AnimatedPath = Animated.createAnimatedComponent(Path); // <--- Adicionado para a barra de N2O
 
 interface RpmGaugeCardProps {
     speed: number;
@@ -27,6 +29,8 @@ interface RpmGaugeCardProps {
     maxRpm?: number;
     gear?: string;
     showShiftLight?: boolean;
+    n2oLevel?: number; // <--- Nova Prop
+    maxN2o?: number;   // <--- Nova Prop
 }
 
 export function RpmGaugeCard({
@@ -35,14 +39,15 @@ export function RpmGaugeCard({
     maxRpm = 8000,
     gear = 'N',
     showShiftLight = false,
+    n2oLevel = 100,      // <--- Valor default (0 a maxN2o)
+    maxN2o = 100,      // <--- Máximo da barra
 }: RpmGaugeCardProps) {
-    // Ângulos da rotação (-170° no zero até 50° no máximo)
+    // --- LÓGICA DO RPM (Agulha) ---
     const minAngle = -170;
     const maxAngle = 50;
     const percentage = Math.min(Math.max(rpm / maxRpm, 0), 1);
     const targetAngle = minAngle + percentage * (maxAngle - minAngle);
 
-    // Shared Value do Reanimated para movimento fluido na UI Thread
     const needleRotation = useSharedValue(minAngle);
 
     useEffect(() => {
@@ -53,7 +58,6 @@ export function RpmGaugeCard({
         });
     }, [targetAngle, needleRotation]);
 
-    // Animação da propriedade transform ancorada no centro do manômetro (52.917, 52.917)
     const animatedNeedleProps = useAnimatedProps(() => ({
         transform: [
             { translateX: 52.917 },
@@ -64,31 +68,70 @@ export function RpmGaugeCard({
         ],
     }));
 
+    // --- LÓGICA DO N2O (Preenchimento da Barra) ---
+    const PATH_LENGTH = 142; // Comprimento exato do arco SVG do N2O
+    const n2oPercentage = Math.min(Math.max(n2oLevel / maxN2o, 0), 1);
+    const n2oProgress = useSharedValue(0);
+
+    useEffect(() => {
+        n2oProgress.value = withSpring(n2oPercentage, {
+            damping: 15,
+            stiffness: 90,
+        });
+    }, [n2oPercentage, n2oProgress]);
+
+    const animatedN2oProps = useAnimatedProps(() => ({
+        // Quando progress = 0, offset = 142 (Vazio). Quando progress = 1, offset = 0 (Cheio).
+        strokeDashoffset: PATH_LENGTH - (PATH_LENGTH * n2oProgress.value),
+    }));
+
     return (
         <View style={styles.container}>
             <View style={styles.svgWrapper}>
                 <Svg viewBox="-10 -10 125.83 125.83" style={styles.svg}>
                     <Defs>
-                        {/* Filtros leves mantidos apenas para o brilho dos olhos */}
+                        {/* Filtros e Gradient mantidos */}
                         <Filter id="filter229" x="-0.23601" y="-0.2058" width="1.472" height="1.4116">
                             <FeGaussianBlur stdDeviation="0.54728426" />
                         </Filter>
-
                         <Filter id="filter230" x="-0.23601" y="-0.2058" width="1.472" height="1.4116">
                             <FeGaussianBlur stdDeviation="0.54728426" />
                         </Filter>
-
                         <RadialGradient id="radialGradient211" cx="52.917" cy="52.917" r="52.917" gradientUnits="userSpaceOnUse">
                             <Stop stopOpacity="0" offset="0.80744" />
                             <Stop offset="0.99344" stopColor="#000" />
                         </RadialGradient>
-
                         <ClipPath id="clipPath247">
                             <Circle cx="52.917" cy="52.917" r="52.917" fill="#edf672" stroke="#edf672" strokeWidth="2.6458" />
                         </ClipPath>
                     </Defs>
 
                     <G transform="matrix(.97561 0 0 .97561 1.2906 1.2907)">
+
+                        {/* ---> INÍCIO DA BORDA N2O ANIMADA <--- */}
+                        <G id="n2o-bar">
+                            {/* 1. Borda externa escura (Fundo da barra) */}
+                            <Path d="M -2.15 62.72 A 56 56 0 0 1 92.6 13.4" fill="none" stroke="#121212" strokeWidth="16" />
+
+                            {/* 2. Preenchimento azul NOS (Barra Animada) */}
+                            <AnimatedPath
+                                d="M -2.15 62.72 A 56 56 0 0 1 92.6 13.4"
+                                fill="none"
+                                stroke="#2a9df4"
+                                strokeWidth="10"
+                                strokeDasharray={`${PATH_LENGTH} ${PATH_LENGTH}`}
+                                animatedProps={animatedN2oProps}
+                            />
+
+                            {/* 3. Ticks (marcações pretas vazadas por cima da barra azul) */}
+                            <Path d="M -2.15 62.72 A 56 56 0 0 1 92.6 13.4" fill="none" stroke="#121212" strokeWidth="11" strokeDasharray="4, 18" />
+
+                            {/* 4. Texto N2O */}
+                            <SvgText x="94" y="14" fill="#2a9df4" fontSize="13" fontWeight="900" transform="rotate(35, 87, 14)">
+                                N2O
+                            </SvgText>
+                        </G>
+                        {/* ---> FIM DA BORDA N2O <--- */}
 
                         {/* 1. CAMADA DE FUNDO (Gato e Olhos) */}
                         <G clipPath="url(#clipPath247)">
