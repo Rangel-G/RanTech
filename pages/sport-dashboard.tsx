@@ -19,6 +19,8 @@ export function SportDashboard() {
                         maxRpm={data.rpmMax}
                         gear={data.gear || 'N'}
                         showShiftLight={data.rpm > 6500}
+                        n2oLevel={data.n2o || 75} 
+                        maxN2o={data.n2oMax} 
                     />
                 </View>
 

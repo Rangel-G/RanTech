@@ -17,9 +17,12 @@ export interface ReceptionData {
     latitude?: number;
     longitude?: number;
     heading?: number;
+    n2o?:number;
+    n2oMax?:number;
 }
 
 export const ENGINE_MAX_RPM = 8000;
+export const ENGINE_MAX_ECT = 140;
 
 export const INITIAL_TELEMETRY: ReceptionData = {
     rpm: 0,
@@ -27,16 +30,18 @@ export const INITIAL_TELEMETRY: ReceptionData = {
     speed: 0,
     gear: 'N',
     ect: 20,
-    ectMax: 120,
+    ectMax: ENGINE_MAX_ECT,
     map: 0,
     mapMax: 2,
     turbo: 0,
     battery: 13.2,
     power: 0,
-    tc: true, // Estado padrão do TC
+    tc: true,
     wheelSpin: 'ESTÁVEL',
     fault: 'OK',
     latitude: -23.55052,
     longitude: -46.633308,
     heading: 45,
+    n2o:0,
+    n2oMax:100,
 };

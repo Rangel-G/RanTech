@@ -39,7 +39,7 @@ export function RpmGaugeCard({
     maxRpm = 8000,
     gear = 'N',
     showShiftLight = false,
-    n2oLevel = 100,      // <--- Valor default (0 a maxN2o)
+    n2oLevel = 0,      // <--- Valor default (0 a maxN2o)
     maxN2o = 100,      // <--- Máximo da barra
 }: RpmGaugeCardProps) {
     // --- LÓGICA DO RPM (Agulha) ---
