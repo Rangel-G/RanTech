@@ -22,7 +22,7 @@ export interface ReceptionData {
 }
 
 export const ENGINE_MAX_RPM = 8000;
-export const ENGINE_MAX_ECT = 140;
+export const ENGINE_MAX_ECT = 110;
 
 export const INITIAL_TELEMETRY: ReceptionData = {
     rpm: 0,

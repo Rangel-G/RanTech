@@ -25,7 +25,7 @@ interface TempGaugeProps {
 }
 
 export function RpmTempGaugeCard({
-    temperature = 90,
+    temperature = 50,
     maxTemp = 120
 }: TempGaugeProps) {
     const minAngle = -170;
@@ -45,11 +45,15 @@ export function RpmTempGaugeCard({
     }, [temperature, maxTemp, needleRotation]);
 
     // Rotação pura com coordenadas de centro do SVG (25.797, 25.797)
-    const animatedNeedleProps = useAnimatedProps(() => ({
-        rotation: needleRotation.value,
-        originX: 25.797,
-        originY: 25.797,
-    }));
+   const animatedNeedleProps = useAnimatedProps(() => ({
+    transform: [
+        { translateX: 25.797 },
+        { translateY: 25.797 },
+        { rotate: `${needleRotation.value}deg` },
+        { translateX: -25.797 },
+        { translateY: -25.797 },
+    ],
+}));
 
     return (
         <View style={styles.container}>
