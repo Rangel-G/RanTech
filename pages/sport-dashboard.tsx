@@ -4,7 +4,8 @@ import { RpmGaugeCard } from '@/components/ui/rpmGauge';
 import { RpmTempGaugeCard } from '@/components/ui/tempGauge';
 // Importe o componente que criamos anteriormente
 import COLORS from '@/constants/global-styles';
-import { useReception } from '@/hooks/useReception';
+import { useCalculatedGear } from '@/hooks/useCalculateGear';
+import { useCarData } from '@/hooks/useCarData';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -22,7 +23,9 @@ function TelemetryBox({ label, value, unit }: { label: string, value: string | n
 }
 
 export function SportDashboard() {
-    const { data } = useReception();
+
+    const { rpm, speed, coolantTemp, fuelLevel } = useCarData();
+    const currentGear = useCalculatedGear(rpm, speed);
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -34,21 +37,21 @@ export function SportDashboard() {
                 {/* Velocímetro/RPM (Fundo) */}
                 <View style={styles.rpmGaugeContainer}>
                     <RpmGaugeCard
-                        speed={data.speed}
-                        rpm={data.rpm}
-                        maxRpm={data.rpmMax}
-                        gear={data.gear || 'N'}
-                        showShiftLight={data.rpm > 6500}
-                        n2oLevel={data.n2o || 75}
-                        maxN2o={data.n2oMax}
+                        speed={speed}
+                        rpm={rpm}
+                        maxRpm={8000}
+                        gear={currentGear || 'N'}
+                        showShiftLight={rpm > 6500}
+                        n2oLevel={fuelLevel}
+                        maxN2o={100}                    // Nível 100%
                     />
                 </View>
 
                 {/* Temperatura (Frente, canto inferior esquerdo) */}
                 <View style={styles.tempGaugeContainer}>
                     <RpmTempGaugeCard
-                        temperature={data.ect}
-                        maxTemp={data.ectMax || 110}
+                        temperature={coolantTemp}
+                        maxTemp={140}
                     />
                 </View>
 
@@ -58,7 +61,7 @@ export function SportDashboard() {
 
 
 
-                {/* NOVO: Barra de Luzes de Alerta (Flexbox Topo) */}
+                {/* Barra de Luzes de Alerta */}
                 <View style={styles.telltaleCluster}>
                     <IndicatorLight
                         iconName="car-battery"
@@ -67,7 +70,7 @@ export function SportDashboard() {
                     />
                     <IndicatorLight
                         iconName="engine"
-                        isActive={!data.speed && !data.rpm} // Exemplo: Acende se não houver dados vitais
+                        isActive={!speed && !rpm} // Exemplo: Acende se não houver dados vitais
                         color="#ffcc00"
                     />
                     <IndicatorLight
@@ -78,12 +81,12 @@ export function SportDashboard() {
                     <IndicatorLight
                         iconName="car-connected"
                         isActive={true} // Acende quando OBD
-                        color="#2a9df4"
+                        color="#08cc43"
                     />
                     <IndicatorLight
                         iconName="bluetooth-connect"
                         isActive={true} // Acende quando LED conectado
-                        color="#2a9df4"
+                        color="#08cc43"
                     />
                 </View>
             </View>

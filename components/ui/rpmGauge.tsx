@@ -27,7 +27,7 @@ interface RpmGaugeCardProps {
     speed: number;
     rpm: number;
     maxRpm?: number;
-    gear?: string;
+    gear?: string | number;
     showShiftLight?: boolean;
     n2oLevel?: number; // <--- Nova Prop
     maxN2o?: number;   // <--- Nova Prop

@@ -164,14 +164,14 @@ const styles = StyleSheet.create({
     },
     tempPanel: {
         position: 'absolute',
-        top: '55%',
-        right: '12%',
+        top: '62%',
+        right: '15%',
         flexDirection: 'row',
         alignItems: 'baseline',
     },
     tempValue: {
         color: '#fff',
-        fontSize: 22,
+        fontSize: 28,
         fontWeight: 'bold',
     },
     tempUnit: {

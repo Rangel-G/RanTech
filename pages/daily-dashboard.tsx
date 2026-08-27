@@ -1,21 +1,21 @@
 import { ChannelBox } from '@/components/ui/channel-box';
 import { RpmRamp } from '@/components/ui/rpmRamp';
+import { useCalculatedGear } from '@/hooks/useCalculateGear';
 import { useCarData } from '@/hooks/useCarData';
-import { useReception } from '@/hooks/useReception';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 export function DailyDashboard() {
 
-    const { data } = useReception()
     const { rpm, speed, coolantTemp, throttlePos, battery, engineLoad } = useCarData();
+    const currentGear = useCalculatedGear(rpm, speed);
 
     return (
         <View style={styles.container}>
             {/* Main Grid Layout replicating HTML structure */}
 
             <View style={styles.rpmContainer}>
-                <RpmRamp rpm={rpm} rpmMax={data.rpmMax} />
+                <RpmRamp rpm={rpm} rpmMax={8000} />
             </View>
 
             <View style={styles.gridContainer}>
@@ -39,7 +39,7 @@ export function DailyDashboard() {
                         <View style={styles.cell}>
                             <ChannelBox
                                 label="Marcha"
-                                value={data.gear}
+                                value={currentGear}
                                 unit="GEAR"
                                 size="small"
                                 theme="default"
@@ -67,15 +67,7 @@ export function DailyDashboard() {
                                 theme={battery < 12 ? 'error' : 'default'}
                             />
                         </View>
-                        <View style={styles.cell}>
-                            <ChannelBox
-                                label="Diagnóstico"
-                                value={data.fault}
-                                unit="STATUS ECU"
-                                size="small"
-                                theme={data.fault === 'OK' ? 'success' : 'error'}
-                            />
-                        </View>
+
                     </View>
                 </View>
             </View>

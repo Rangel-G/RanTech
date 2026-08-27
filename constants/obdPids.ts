@@ -87,7 +87,7 @@ export const OBD_PIDS: Record<string, ObdPid> = {
     },
 
     // Carga Calculada do Motor (%)
-  ENGINE_LOAD: {
+    ENGINE_LOAD: {
         pid: '0104',
         name: 'Engine Load',
         unit: '%',
@@ -108,6 +108,65 @@ export const OBD_PIDS: Record<string, ObdPid> = {
             // O chip responde algo como "12.4V" ou "14.1V", então não usamos a lógica Hexadecimal aqui.
             const match = response.match(/([\d\.]+)/);
             return match ? parseFloat(match[1]) : null;
+        }
+    },
+    // Pressão do Combustível
+    FUEL_PRESSURE: {
+        pid: '010A',
+        name: 'Fuel Pressure',
+        unit: 'kPa',
+        parse: (hex) => {
+            const bytes = getBytes(hex);
+            if (bytes.length < 1) return null;
+            return bytes[0] * 3;
+        }
+    },
+
+    // Pressão do Coletor de Admissão (MAP)
+    MAP: {
+        pid: '010B',
+        name: 'Intake Manifold Absolute Pressure',
+        unit: 'kPa',
+        parse: (hex) => {
+            const bytes = getBytes(hex);
+            if (bytes.length < 1) return null;
+            return bytes[0];
+        }
+    },
+
+    // Avanço de Ignição
+    TIMING_ADVANCE: {
+        pid: '010E',
+        name: 'Timing Advance',
+        unit: '°',
+        parse: (hex) => {
+            const bytes = getBytes(hex);
+            if (bytes.length < 1) return null;
+            return (bytes[0] / 2) - 64;
+        }
+    },
+
+    // Temperatura do Ar de Admissão (IAT)
+    IAT: {
+        pid: '010F',
+        name: 'Intake Air Temperature',
+        unit: '°C',
+        parse: (hex) => {
+            const bytes = getBytes(hex);
+            if (bytes.length < 1) return null;
+            return bytes[0] - 40;
+        }
+    },
+
+    // Nível do Tanque de Combustível
+    FUEL_LEVEL: {
+        pid: '012F',
+        name: 'Fuel Tank Level Input',
+        unit: '%',
+        parse: (hex) => {
+            const bytes = getBytes(hex);
+            if (bytes.length < 1) return null;
+            return (bytes[0] * 100) / 255;
         }
     }
 };

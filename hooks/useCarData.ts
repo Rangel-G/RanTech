@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { OBD_PIDS } from '../constants/obdPids';
 import { obdService } from '../services/obdService';
 
-// Estrutura do objeto de dados que vai alimentar o seu Dashboard
+// Atualize a interface existente
 interface CarMetrics {
     rpm: number;
     speed: number;
@@ -12,21 +12,29 @@ interface CarMetrics {
     throttlePos: number;
     engineLoad: number;
     battery: number;
+    fuelPressure: number; // Novo
+    map: number;          // Novo
+    timingAdvance: number;// Novo
+    iat: number;          // Novo
+    fuelLevel: number;    // Novo
 }
 
-// /hooks/useCarData.ts
+// Atualize o estado inicial dentro do hook useCarData
+const [metrics, setMetrics] = useState<CarMetrics>({
+    rpm: 0,
+    speed: 0,
+    coolantTemp: 0,
+    throttlePos: 0,
+    engineLoad: 0,
+    battery: 0,
+    fuelPressure: 0,
+    map: 0,
+    timingAdvance: 0,
+    iat: 0,
+    fuelLevel: 0
+});
 
-// Estrutura do objeto de dados que vai alimentar o seu Dashboard
-interface CarMetrics {
-    rpm: number;
-    speed: number;
-    coolantTemp: number;
-    throttlePos: number;
-    engineLoad: number;
-    battery: number;
-}
-
-// Lista ordenada do que queremos perguntar ao carro a cada ciclo
+// Adicione à fila de requisições
 const POLLING_QUEUE = [
     { key: 'rpm', pidConfig: OBD_PIDS.RPM },
     { key: 'speed', pidConfig: OBD_PIDS.SPEED },
@@ -34,6 +42,11 @@ const POLLING_QUEUE = [
     { key: 'throttlePos', pidConfig: OBD_PIDS.THROTTLE_POS },
     { key: 'engineLoad', pidConfig: OBD_PIDS.ENGINE_LOAD },
     { key: 'battery', pidConfig: OBD_PIDS.BATTERY },
+    { key: 'fuelPressure', pidConfig: OBD_PIDS.FUEL_PRESSURE },
+    { key: 'map', pidConfig: OBD_PIDS.MAP },
+    { key: 'timingAdvance', pidConfig: OBD_PIDS.TIMING_ADVANCE },
+    { key: 'iat', pidConfig: OBD_PIDS.IAT },
+    { key: 'fuelLevel', pidConfig: OBD_PIDS.FUEL_LEVEL },
 ];
 
 export const useCarData = () => {
@@ -41,12 +54,17 @@ export const useCarData = () => {
 
     // Estado que será consumido pela UI
     const [metrics, setMetrics] = useState<CarMetrics>({
-        rpm: 0,
-        speed: 0,
-        coolantTemp: 0,
-        throttlePos: 0,
-        engineLoad: 0,
-        battery: 0
+        rpm: 0,            // RPM do motor
+        speed: 0,          // Velocidade
+        coolantTemp: 0,    // Temperatura do motor  
+        throttlePos: 0,    // Posição do acelerador
+        engineLoad: 0,     // Carga do motor
+        battery: 0,        // Bateria 
+        fuelPressure: 0,   // Pressão do combustível
+        map: 0,            // Pressão do Coletor (MAP)
+        timingAdvance: 0,  // Avanço de ignição
+        iat: 0,            // Temperatura do ar (IAT)
+        fuelLevel: 0       // Nível do tanque
     });
 
     const currentQueryIndex = useRef(0);

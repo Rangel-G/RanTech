@@ -160,6 +160,35 @@ class OBDService {
             // Simula Voltagem do Alternador: 13.5v a 14.4v
             const volts = (Math.random() * (14.4 - 13.5) + 13.5).toFixed(1);
             response = `${volts}V`;
+        } else if (cleanCmd === '010A') {
+            // Simula Pressão do Combustível (A * 3): ~300 a 400 kPa
+            const press = Math.floor(Math.random() * (400 - 300 + 1)) + 300;
+            const A = Math.floor(press / 3).toString(16).padStart(2, '0').toUpperCase();
+            response = `41 0A ${A}`;
+
+        } else if (cleanCmd === '010B') {
+            // Simula Pressão MAP (A): 30 a 100 kPa
+            const map = Math.floor(Math.random() * (100 - 30 + 1)) + 30;
+            const A = map.toString(16).padStart(2, '0').toUpperCase();
+            response = `41 0B ${A}`;
+
+        } else if (cleanCmd === '010E') {
+            // Simula Avanço de Ignição ((A/2) - 64): -10 a 40 graus
+            const advance = Math.floor(Math.random() * (40 - (-10) + 1)) + (-10);
+            const A = Math.floor((advance + 64) * 2).toString(16).padStart(2, '0').toUpperCase();
+            response = `41 0E ${A}`;
+
+        } else if (cleanCmd === '010F') {
+            // Simula Temperatura IAT (A - 40): 25 a 55 ºC
+            const iat = Math.floor(Math.random() * (55 - 25 + 1)) + 25;
+            const A = Math.floor(iat + 40).toString(16).padStart(2, '0').toUpperCase();
+            response = `41 0F ${A}`;
+
+        } else if (cleanCmd === '012F') {
+            // Simula Nível do Tanque ((A*100)/255): 10% a 100%
+            const level = Math.floor(Math.random() * (100 - 10 + 1)) + 10;
+            const A = Math.floor((level * 255) / 100).toString(16).padStart(2, '0').toUpperCase();
+            response = `41 2F ${A}`;
         }
 
 
