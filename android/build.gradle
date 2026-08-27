@@ -1,12 +1,5 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
-defaultConfig {
-    aaptOptions {
-        noCompress ''
-        additionalParameters "--no-version-vectors"
-    }
-}
-
 buildscript {
   repositories {
     google()
