@@ -21,5 +21,29 @@ allprojects {
   }
 }
 
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty("android")) {
+            project.android {
+                if (compileSdkVersion < 33) {
+                    compileSdkVersion 36
+                }
+                defaultConfig {
+                    if (targetSdkVersion < 33) {
+                        targetSdkVersion 36
+                    }
+                }
+            }
+        }
+        configurations.all {
+            resolutionStrategy.eachDependency { details ->
+                if (details.requested.group == 'androidx.core' && details.requested.name == 'core') {
+                    details.useVersion '1.13.1'
+                }
+            }
+        }
+    }
+}
+
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
