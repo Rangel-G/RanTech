@@ -4,7 +4,7 @@ export default {
     slug: "rantech_mobile",
     owner: "rangelg",
     version: "1.0.0",
-    newArchEnabled: "false",
+    newArchEnabled: "true",
     icon: "./assets/icon.png",
     orientation: "landscape",
     scheme: "rantechmobile",
