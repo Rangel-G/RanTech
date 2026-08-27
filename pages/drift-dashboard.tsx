@@ -1,21 +1,44 @@
 import { ChannelBox } from '@/components/ui/channel-box';
 import { RpmRamp } from '@/components/ui/rpmRamp';
-import { useReception } from '@/hooks/useReception';
-import React from 'react';
+import { useCalculatedGear } from '@/hooks/useCalculateGear';
+import { useCarData } from '@/hooks/useCarData';
+import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 export function DriftDashboard() {
-  const { data, toggleTc } = useReception();
+  const { rpm, speed, throttlePos } = useCarData();
+  const currentGear = useCalculatedGear(rpm, speed);
+
+  // Estado local para o botão de TC (pode ser usado no futuro para acionar um relé via Bluetooth)
+  const [tcEnabled, setTcEnabled] = useState(true);
+
+  // --- LÓGICA DE DETECÇÃO DE PATINAGEM (WHEEL SPIN) ---
+  let wheelSpinStatus = 'ESTÁVEL';
+  let spinTheme: 'success' | 'error' | 'warning' | 'default' = 'success';
+
+  // Se o carro está em movimento, o acelerador está pressionado, mas o calculador
+  // de marchas perdeu a referência ('N'), significa que o RPM descolou da Velocidade.
+  if (speed > 15 && throttlePos > 40 && currentGear === 'N') {
+    wheelSpinStatus = 'PATINANDO (DRIFT)';
+    spinTheme = 'warning'; // Fica amarelo/laranja indicando perda de tração
+  }
+
+  // Falha de leitura ou carro parado
+  if (speed === 0 && rpm === 0) {
+    spinTheme = 'default';
+    wheelSpinStatus = 'AGUARDANDO DADOS';
+  }
 
   return (
     <View style={styles.container}>
-      <RpmRamp rpm={data.rpm} rpmMax={data.rpmMax} />
+      {/* Assumindo 8000 como rpmMax visual, já que não temos PID para isso */}
+      <RpmRamp rpm={rpm} rpmMax={8000} />
 
       <View style={styles.twoColumnRow}>
         <View style={styles.boxWrapper}>
           <ChannelBox
             label="Giro Atual"
-            value={Math.round(data.rpm)}
+            value={Math.round(rpm)}
             unit="RPM"
             size="small"
             theme="default"
@@ -23,11 +46,11 @@ export function DriftDashboard() {
         </View>
         <View style={styles.boxWrapper}>
           <ChannelBox
-            label="Pico de Giro"
-            value={Math.round(data.rpmMax)}
-            unit="MAX RPM"
+            label="Velocidade Roda"
+            value={Math.round(speed)}
+            unit="KM/H"
             size="small"
-            theme="warning"
+            theme="default"
           />
         </View>
       </View>
@@ -35,9 +58,9 @@ export function DriftDashboard() {
       <View style={styles.twoColumnRow}>
         <View style={styles.boxWrapper}>
           <ChannelBox
-            label="Velocidade Roda"
-            value={Math.round(data.speed)}
-            unit="KM/H"
+            label="Marcha"
+            value={currentGear}
+            unit="GEAR"
             size="small"
             theme="default"
           />
@@ -45,12 +68,12 @@ export function DriftDashboard() {
         <View style={styles.boxWrapper}>
           <ChannelBox
             label="Controle de Tração"
-            value={data.tc ? 'ATIVO' : 'INATIVO'}
+            value={tcEnabled ? 'ATIVO' : 'INATIVO'}
             unit="STATUS TC"
             size="small"
-            theme={data.tc ? 'success' : 'error'}
-            isActive={data.tc}
-            onPress={toggleTc}
+            theme={tcEnabled ? 'success' : 'error'}
+            isActive={tcEnabled}
+            onPress={() => setTcEnabled(!tcEnabled)}
           />
         </View>
       </View>
@@ -58,10 +81,10 @@ export function DriftDashboard() {
       <View style={styles.fullWidthBox}>
         <ChannelBox
           label="Delta de Patinagem"
-          value={data.wheelSpin}
+          value={wheelSpinStatus}
           unit="RPM vs VSS"
           size="small"
-          theme={data.wheelSpin === 'ESTÁVEL' ? 'success' : 'error'}
+          theme={spinTheme}
         />
       </View>
     </View>

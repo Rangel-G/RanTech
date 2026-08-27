@@ -1,17 +1,19 @@
 import { ChannelBox } from '@/components/ui/channel-box';
 import { RpmRamp } from '@/components/ui/rpmRamp';
-import { useReception } from '@/hooks/useReception';
+import { useCalculatedGear } from '@/hooks/useCalculateGear';
+import { useCarData } from '@/hooks/useCarData';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 export function TrackDashboard() {
 
-    const { data } = useReception();
+    const { rpm, speed, engineLoad, rpmMax, coolantTemp, map } = useCarData();
+    const currentGear = useCalculatedGear(rpm, speed);
 
     return (
         <View style={styles.container}>
             <View style={styles.rpmContainer}>
-                <RpmRamp rpm={data.rpm} rpmMax={data.rpmMax} />
+                <RpmRamp rpm={rpm} rpmMax={rpmMax} />
             </View>
 
 
@@ -20,16 +22,16 @@ export function TrackDashboard() {
                 <View style={styles.boxWrapper}>
                     <ChannelBox
                         label="Temp. Motor"
-                        value={Math.round(data.ect)}
+                        value={Math.round(coolantTemp)}
                         unit="°C"
                         size="small"
-                        theme={data.ect > 95 ? 'warning' : 'default'}
+                        theme={coolantTemp > 95 ? 'warning' : 'default'}
                     />
                 </View>
                 <View style={styles.boxWrapper}>
                     <ChannelBox
                         label="Pressão MAP"
-                        value={data.map.toFixed(2)}
+                        value={map.toFixed(2)}
                         unit="BAR"
                         size="small"
                         theme="default"
@@ -38,7 +40,7 @@ export function TrackDashboard() {
                 <View style={styles.boxWrapper}>
                     <ChannelBox
                         label="Marcha"
-                        value={data.gear}
+                        value={currentGear}
                         unit="GEAR"
                         size="small"
                         theme="default"
@@ -51,7 +53,7 @@ export function TrackDashboard() {
                 <View style={[styles.boxWrapper, { flex: 1 }]}>
                     <ChannelBox
                         label="Velocidade"
-                        value={Math.round(data.speed)}
+                        value={Math.round(speed)}
                         unit="KM/H"
                         size="small"
                         theme="default"
@@ -60,7 +62,7 @@ export function TrackDashboard() {
                 <View style={[styles.boxWrapper, { flex: 2 }]}>
                     <ChannelBox
                         label="Carga do Motor"
-                        value={`${Math.round(data.power)}%`}
+                        value={`${Math.round(engineLoad)}%`}
                         unit="LOAD"
                         size="small"
                         theme="default"

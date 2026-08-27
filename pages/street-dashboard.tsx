@@ -1,24 +1,26 @@
 import { ChannelBox } from '@/components/ui/channel-box';
 import { RpmRamp } from '@/components/ui/rpmRamp';
-import { useReception } from '@/hooks/useReception';
+import { useCalculatedGear } from '@/hooks/useCalculateGear';
+import { useCarData } from '@/hooks/useCarData';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 export function StreetDashboard() {
 
-  const { data, toggleTc } = useReception()
+  const { rpm, speed, engineLoad, rpmMax,  } = useCarData();
+  const currentGear = useCalculatedGear(rpm, speed);
 
   return (
     <View style={styles.container}>
       <View style={styles.rpmContainer}>
-          <RpmRamp rpm={data.rpm} rpmMax={data.rpmMax} />
-        </View>
-      <View style={styles.gridContainer}>      
+        <RpmRamp rpm={rpm} rpmMax={rpmMax} />
+      </View>
+      <View style={styles.gridContainer}>
         {/* Esquerda: Velocidade */}
         <View style={styles.leftColumn}>
           <ChannelBox
             label="Velocidade"
-            value={Math.round(data.speed)}
+            value={Math.round(speed)}
             unit="KM/H"
             size="large"
             theme="default"
@@ -31,7 +33,7 @@ export function StreetDashboard() {
             <View style={styles.cell}>
               <ChannelBox
                 label="Marcha"
-                value={data.gear}
+                value={currentGear}
                 unit="GEAR"
                 size="small"
                 theme="default"
@@ -40,24 +42,10 @@ export function StreetDashboard() {
             <View style={styles.cell}>
               <ChannelBox
                 label="Carga Motor"
-                value={Math.round(data.power)}
+                value={Math.round(engineLoad)}
                 unit="%"
                 size="small"
                 theme="default"
-              />
-            </View>
-          </View>
-
-          <View style={styles.row}>
-            <View style={styles.cell}>
-              <ChannelBox
-                label="Controle de Tração"
-                value={data.tc ? 'ATIVO' : 'INATIVO'}
-                unit="STATUS TC"
-                size="small"
-                theme={data.tc ? 'success' : 'error'}
-                isActive={data.tc}
-                onPress={toggleTc}
               />
             </View>
           </View>

@@ -4,6 +4,8 @@ import { RpmGaugeCard } from '@/components/ui/rpmGauge';
 import { RpmTempGaugeCard } from '@/components/ui/tempGauge';
 // Importe o componente que criamos anteriormente
 import COLORS from '@/constants/global-styles';
+import { useConnection } from '@/contexts/connectionContext';
+import { useLed } from '@/contexts/led-context';
 import { useCalculatedGear } from '@/hooks/useCalculateGear';
 import { useCarData } from '@/hooks/useCarData';
 import React from 'react';
@@ -24,7 +26,12 @@ function TelemetryBox({ label, value, unit }: { label: string, value: string | n
 
 export function SportDashboard() {
 
-    const { rpm, speed, coolantTemp, fuelLevel } = useCarData();
+    // 1. Extraia os estados de conexão
+    const { status: obdStatus } = useConnection();
+    const { isConnected: isLedConnected } = useLed();
+
+    // 2. Adicione 'battery' à desestruturação do useCarData
+    const { rpm, speed, coolantTemp, fuelLevel, battery } = useCarData();
     const currentGear = useCalculatedGear(rpm, speed);
 
     return (
@@ -61,33 +68,44 @@ export function SportDashboard() {
 
 
 
-                {/* Barra de Luzes de Alerta */}
+                {/* Barra de Luzes de Alerta Atualizada */}
                 <View style={styles.telltaleCluster}>
+                    
+                    {/* BATERIA: Acende se a voltagem cair abaixo de 12.5V (descarregando) ou passar de 15V (sobrecarga no alternador) */}
                     <IndicatorLight
                         iconName="car-battery"
-                        isActive={true} // Ative se a voltagem cair
+                        isActive={obdStatus === 'CONNECTED' && (battery < 12.5 || battery > 15.0)} 
                         color="#ff3333"
                     />
+                    
+                    {/* CHECK ENGINE: Acende com a chave ligada (RPM 0) OU se o motor estiver superaquecendo (> 100ºC) */}
                     <IndicatorLight
                         iconName="engine"
-                        isActive={!speed && !rpm} // Exemplo: Acende se não houver dados vitais
+                        isActive={(obdStatus === 'CONNECTED' && rpm === 0) || coolantTemp > 105} 
                         color="#ffcc00"
                     />
+                    
+                    {/* ÓLEO: O OBD2 não lê pressão de óleo nativamente. Acende com a chave ligada (0 RPM) ou se o carro estiver morrendo (RPM < 500), o que faz a bomba perder pressão */}
                     <IndicatorLight
                         iconName="oil"
-                        isActive={true}
+                        isActive={obdStatus === 'CONNECTED' && rpm < 500} 
                         color="#ff3333"
                     />
+                    
+                    {/* CONEXÃO OBD: Acende verde fixo apenas quando a comunicação com a ECU estiver estabelecida */}
                     <IndicatorLight
                         iconName="car-connected"
-                        isActive={true} // Acende quando OBD
+                        isActive={obdStatus === 'CONNECTED'} 
                         color="#08cc43"
                     />
+                    
+                    {/* CONEXÃO LED: Acende verde quando a fita LED BLE (Shift Light) estiver pareada */}
                     <IndicatorLight
                         iconName="bluetooth-connect"
-                        isActive={true} // Acende quando LED conectado
+                        isActive={isLedConnected} 
                         color="#08cc43"
                     />
+                    
                 </View>
             </View>
         </ScrollView >

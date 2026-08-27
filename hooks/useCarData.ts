@@ -7,6 +7,7 @@ import { obdService } from '../services/obdService';
 // Atualize a interface existente
 interface CarMetrics {
     rpm: number;
+    rpmMax: number;
     speed: number;
     coolantTemp: number;
     throttlePos: number;
@@ -22,6 +23,7 @@ interface CarMetrics {
 // Atualize o estado inicial dentro do hook useCarData
 const [metrics, setMetrics] = useState<CarMetrics>({
     rpm: 0,
+    rpmMax: 8000,
     speed: 0,
     coolantTemp: 0,
     throttlePos: 0,
@@ -55,6 +57,7 @@ export const useCarData = () => {
     // Estado que será consumido pela UI
     const [metrics, setMetrics] = useState<CarMetrics>({
         rpm: 0,            // RPM do motor
+        rpmMax: 8000,      //RPM máximo do Motor 
         speed: 0,          // Velocidade
         coolantTemp: 0,    // Temperatura do motor  
         throttlePos: 0,    // Posição do acelerador
