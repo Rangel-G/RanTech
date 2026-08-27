@@ -1,13 +1,13 @@
-// @/screens/settings-screen.tsx (ou o caminho atual do seu arquivo)
 import { ColorPickerModal } from '@/components/colorPickerModal';
 import { ExpandablePanel } from '@/components/ui/expandable-panel';
 import { useConnection } from '@/contexts/connectionContext';
 import { useGroup } from '@/contexts/group-context';
 import { useLed } from '@/contexts/led-context';
 import { UserService } from '@/services/firebase/user-service';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -41,24 +41,6 @@ export function SettingsScreen() {
         if (currentColorKey === 'map') setMapColor(hex);
         if (currentColorKey === 'normal') updateLedSettings({ ...ledSettings, colorNormal: hex });
         if (currentColorKey === 'redline') updateLedSettings({ ...ledSettings, colorRedline: hex });
-    };
-
-    const toastTimerRef = useRef<number | null>(null);
-    const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-    const showToast = (message: string) => {
-        setToastMessage(message);
-
-        // Cancela o timer anterior se existir
-        if (toastTimerRef.current !== null) {
-            clearTimeout(toastTimerRef.current);
-        }
-
-        // Atribui o novo timer (o setTimeout no React Native retorna um number)
-        toastTimerRef.current = window.setTimeout(() => {
-            setToastMessage(null);
-            toastTimerRef.current = null;
-        }, 2500) as unknown as number; // Força a tipagem caso o ambiente exija
     };
 
     // Contexto de Grupo e Autenticação (Unificado)
@@ -124,120 +106,95 @@ export function SettingsScreen() {
 
     useEffect(() => {
         async function loadOtherSettings() {
-            try {
-                setIsLoading(true);
-                const [savedObd, savedGear] = await Promise.all([
-                    SettingsStorage.getObdSettings(),
-                    SettingsStorage.getGearSettings(),
-                ]);
+            setIsLoading(true);
+            const [savedObd, savedGear] = await Promise.all([
+                SettingsStorage.getObdSettings(),
+                SettingsStorage.getGearSettings(),
+            ]);
 
-                setObdSettings(savedObd);
-                setGearSettings(savedGear);
-            } catch (error) {
-                showToast('❌ Não foi possível carregar as configurações salvas.');
-            } finally {
-                setIsLoading(false);
-            }
+            setObdSettings(savedObd);
+            setGearSettings(savedGear);
+            setIsLoading(false);
         }
         loadOtherSettings();
     }, []);
 
     const handleSaveObd = async () => {
-        try {
-            await SettingsStorage.saveObdSettings(obdSettings);
-            if (user?.uid) {
-                await UserService.saveUserSettings(user.uid, { obd: obdSettings });
-            }
-            showToast('✓ Configurações OBD salvas com sucesso!');
-        } catch (error: any) {
-            showToast(`❌ ${error?.message || 'Falha ao salvar as configurações OBD.'}`);
+        await SettingsStorage.saveObdSettings(obdSettings);
+        if (user?.uid) {
+            await UserService.saveUserSettings(user.uid, { obd: obdSettings });
         }
+        Alert.alert('Sucesso', 'Configurações OBD salvas!');
     };
 
     const handleSaveLed = async () => {
         if (!ledSettings.name.trim() || !ledSettings.uuid.trim()) {
-            showToast('⚠️ Nome e UUID do LED não podem ficar vazios.');
+            Alert.alert('Erro', 'Nome e UUID do LED não podem ficar vazios.');
             return;
         }
+        await updateLedSettings(ledSettings);
 
-        try {
-            await updateLedSettings(ledSettings);
-            if (user?.uid) {
-                await UserService.saveUserSettings(user.uid, { led: ledSettings });
-            }
-            showToast('✓ Configurações do LED salvas com sucesso!');
-        } catch (error: any) {
-            showToast(`❌ ${error?.message || 'Falha ao salvar as configurações do LED.'}`);
+        if (user?.uid) {
+            await UserService.saveUserSettings(user.uid, { led: ledSettings });
         }
+        Alert.alert('Sucesso', 'Configurações do LED salvas!');
     };
 
     const handleSaveGear = async () => {
-        try {
-            await SettingsStorage.saveGearSettings(gearSettings);
-            if (user?.uid) {
-                await UserService.saveUserSettings(user.uid, { gear: gearSettings });
-            }
-            showToast('✓ Relações de Marcha salvas com sucesso!');
-        } catch (error: any) {
-            showToast(`❌ ${error?.message || 'Falha ao salvar as relações de marcha.'}`);
+        await SettingsStorage.saveGearSettings(gearSettings);
+        if (user?.uid) {
+            await UserService.saveUserSettings(user.uid, { gear: gearSettings });
         }
+        Alert.alert('Sucesso', 'Relações de Marcha salvas!');
     };
 
     const handleSaveMapSettings = async () => {
-        try {
-            await saveMapSettings(mapColor, pilotName);
-            if (user?.uid) {
-                await UserService.saveUserSettings(user.uid, {
-                    profile: {
-                        pilotName,
-                        pointerColor: mapColor,
-                        activeGroup,
-                    }
-                });
-            }
-            showToast('✓ Configurações do Perfil salvas com sucesso!');
-        } catch (error: any) {
-            showToast(`❌ ${error?.message || 'Falha ao salvar o perfil.'}`);
+        await saveMapSettings(mapColor, pilotName);
+        if (user?.uid) {
+            await UserService.saveUserSettings(user.uid, {
+                profile: {
+                    pilotName,
+                    pointerColor: mapColor,
+                    activeGroup,
+                }
+            });
         }
+        Alert.alert('Sucesso', 'Configurações do Perfil salvas!');
     };
 
     const handleCreateGroup = async () => {
         if (!groupNameInput.trim() || !groupPasswordInput.trim()) {
-            showToast('⚠️ Informe o nome e a senha do grupo.');
+            Alert.alert('Atenção', 'Informe o nome e a senha do grupo.');
             return;
         }
 
         try {
             await createGroup(groupNameInput, groupPasswordInput);
-            showToast(`✓ Grupo "${groupNameInput}" criado com sucesso!`);
+            Alert.alert('Sucesso', `Grupo "${groupNameInput}" criado!`);
         } catch (error: any) {
-            showToast(`❌ ${error?.message || 'Falha ao criar o grupo.'}`);
+            Alert.alert('Erro', error.message || 'Falha ao criar o grupo.');
         }
     };
 
     const handleJoinGroup = async () => {
         if (!groupNameInput.trim() || !groupPasswordInput.trim()) {
-            showToast('⚠️ Informe o nome e a senha do grupo.');
+            Alert.alert('Atenção', 'Informe o nome e a senha do grupo.');
             return;
         }
 
         try {
             await joinGroup(groupNameInput, groupPasswordInput);
-            showToast(`✓ Você entrou no grupo "${groupNameInput}" com sucesso!`);
+            Alert.alert('Sucesso', `Você entrou no grupo "${groupNameInput}"!`);
         } catch (error: any) {
-            showToast(`❌ ${error?.message || 'Falha ao entrar no grupo.'}`);
+            Alert.alert('Erro', error.message || 'Falha ao entrar no grupo.');
         }
     };
 
     const handleLeaveGroup = async () => {
-        try {
-            await leaveGroup();
-            setGroupNameInput('');
-            setGroupPasswordInput('');
-            showToast('✓ Você saiu do grupo.');
-        } catch (error: any) {
-            showToast(`❌ ${error?.message || 'Falha ao sair do grupo.'}`);
-        }
+        await leaveGroup();
+        setGroupNameInput('');
+        setGroupPasswordInput('');
+        Alert.alert('Sucesso', 'Você saiu do grupo.');
     };
 
     const renderOptionButtonList = (
@@ -250,11 +207,10 @@ export function SettingsScreen() {
             {items.map((item) => (
                 <Pressable
                     key={item.value || item.label}
-                    style={({ pressed }) => [
+                    style={[
                         styles.selectButton,
                         selectedValue === item.value && styles.selectButtonActive,
                         isCompact && styles.selectButtonCompact,
-                        pressed && { opacity: 0.6, transform: [{ scale: 0.98 }] },
                     ]}
                     onPress={() => onSelect(item.value)}
                 >
@@ -281,8 +237,6 @@ export function SettingsScreen() {
 
     const showFtdiSelector = obdSettings.connectionType === 'usb';
 
-
-
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
             {/* Status da Conta do Usuário */}
@@ -294,10 +248,7 @@ export function SettingsScreen() {
                 {user ? (
                     <View style={styles.fieldContainer}>
                         <Text style={styles.accountText}>Logado como: {user.email}</Text>
-                        <Pressable
-                            style={({ pressed }) => [styles.actionButton, styles.leaveButton, pressed && { opacity: 0.6 }]}
-                            onPress={logout}
-                        >
+                        <Pressable style={[styles.actionButton, styles.leaveButton]} onPress={logout}>
                             <Text style={styles.leaveButtonText}>🚪 Sair da Conta Google</Text>
                         </Pressable>
                     </View>
@@ -308,7 +259,7 @@ export function SettingsScreen() {
                         </Text>
 
                         <Pressable
-                            style={({ pressed }) => [styles.actionButton, styles.connectButton, pressed && { opacity: 0.6 }]}
+                            style={[styles.actionButton, styles.connectButton]}
                             onPress={() => promptGoogleLogin()}
                         >
                             <Text style={styles.buttonText}>🔑 Entrar com Google</Text>
@@ -346,21 +297,14 @@ export function SettingsScreen() {
                                 placeholderTextColor="rgba(255, 255, 255, 0.3)"
                             />
                             <Pressable
-                                style={({ pressed }) => [
-                                    styles.colorPreview,
-                                    { backgroundColor: mapColor || '#00ffff' },
-                                    pressed && { opacity: 0.7 }
-                                ]}
+                                style={[styles.colorPreview, { backgroundColor: mapColor || '#00ffff' }]}
                                 onPress={() => openColorPicker('map', mapColor)}
                             />
                         </View>
                     </View>
 
                     <View style={styles.buttonRow}>
-                        <Pressable
-                            style={({ pressed }) => [styles.actionButton, styles.saveButton, pressed && { opacity: 0.6 }]}
-                            onPress={handleSaveMapSettings}
-                        >
+                        <Pressable style={[styles.actionButton, styles.saveButton]} onPress={handleSaveMapSettings}>
                             <Text style={styles.buttonText}>✓ Salvar Perfil / Cor</Text>
                         </Pressable>
                     </View>
@@ -394,25 +338,16 @@ export function SettingsScreen() {
 
                     {activeGroup ? (
                         <View style={styles.buttonRow}>
-                            <Pressable
-                                style={({ pressed }) => [styles.actionButton, styles.leaveButton, pressed && { opacity: 0.6 }]}
-                                onPress={handleLeaveGroup}
-                            >
+                            <Pressable style={[styles.actionButton, styles.leaveButton]} onPress={handleLeaveGroup}>
                                 <Text style={styles.leaveButtonText}>🚪 Sair do Grupo ({activeGroup})</Text>
                             </Pressable>
                         </View>
                     ) : (
                         <View style={styles.buttonRow}>
-                            <Pressable
-                                style={({ pressed }) => [styles.actionButton, styles.saveButton, pressed && { opacity: 0.6 }]}
-                                onPress={handleCreateGroup}
-                            >
+                            <Pressable style={[styles.actionButton, styles.saveButton]} onPress={handleCreateGroup}>
                                 <Text style={styles.buttonText}>➕ Criar Grupo</Text>
                             </Pressable>
-                            <Pressable
-                                style={({ pressed }) => [styles.actionButton, styles.connectButton, pressed && { opacity: 0.6 }]}
-                                onPress={handleJoinGroup}
-                            >
+                            <Pressable style={[styles.actionButton, styles.connectButton]} onPress={handleJoinGroup}>
                                 <Text style={styles.buttonText}>🔑 Entrar no Grupo</Text>
                             </Pressable>
                         </View>
@@ -454,9 +389,7 @@ export function SettingsScreen() {
                                     true
                                 )}
                             </View>
-                            <Pressable
-                                style={({ pressed }) => [styles.actionButton, styles.smallActionButton, pressed && { opacity: 0.6 }]}
-                            >
+                            <Pressable style={[styles.actionButton, styles.smallActionButton]}>
                                 <Text style={styles.buttonText}>🔄 Buscar</Text>
                             </Pressable>
                         </View>
@@ -469,10 +402,9 @@ export function SettingsScreen() {
                         {baudRateOptions.map((rate) => (
                             <Pressable
                                 key={rate}
-                                style={({ pressed }) => [
+                                style={[
                                     styles.selectButton,
                                     obdSettings.baudRate === rate && styles.selectButtonActive,
-                                    pressed && { opacity: 0.6, transform: [{ scale: 0.98 }] },
                                 ]}
                                 onPress={() => setObdSettings({ ...obdSettings, baudRate: rate })}
                             >
@@ -495,11 +427,10 @@ export function SettingsScreen() {
                         {protocolOptions.map((protocol) => (
                             <Pressable
                                 key={protocol.value}
-                                style={({ pressed }) => [
+                                style={[
                                     styles.selectButton,
                                     styles.protocolButton,
                                     obdSettings.protocol === protocol.value && styles.selectButtonActive,
-                                    pressed && { opacity: 0.6, transform: [{ scale: 0.98 }] },
                                 ]}
                                 onPress={() => setObdSettings({ ...obdSettings, protocol: protocol.value })}
                             >
@@ -518,26 +449,22 @@ export function SettingsScreen() {
 
                 <View style={styles.buttonRow}>
                     <Pressable
-                        style={({ pressed }) => [styles.actionButton, styles.saveButton, pressed && { opacity: 0.6 }]}
+                        style={[styles.actionButton, styles.saveButton]}
                         onPress={handleSaveObd}
                     >
                         <Text style={styles.buttonText}>✓ Salvar Conexão</Text>
                     </Pressable>
                     <Pressable
-                        style={({ pressed }) => [
+                        style={[
                             styles.actionButton,
-                            status === 'CONNECTED' ? styles.connectButton : {},
-                            pressed && { opacity: 0.6 }
+                            status === 'CONNECTED' ? styles.connectButton : {}
                         ]}
                         onPress={() => {
                             if (status === 'CONNECTED') {
                                 disconnect();
                             } else {
-                                let deviceId = obdSettings.port;
-                                if (obdSettings.connectionType === 'bluetooth' && (deviceId === 'COM4' || !deviceId)) {
-                                    deviceId = 'SIM-001';
-                                }
-                                connect(deviceId);
+                                // Utiliza a porta/ID definida no input para tentar a conexão
+                                connect(obdSettings.port);
                             }
                         }}
                     >
@@ -623,11 +550,7 @@ export function SettingsScreen() {
                                 placeholderTextColor="rgba(255, 255, 255, 0.3)"
                             />
                             <Pressable
-                                style={({ pressed }) => [
-                                    styles.colorPreview,
-                                    { backgroundColor: ledSettings.colorNormal || '#0084ff' },
-                                    pressed && { opacity: 0.7 }
-                                ]}
+                                style={[styles.colorPreview, { backgroundColor: ledSettings.colorNormal || '#0084ff' }]}
                                 onPress={() => openColorPicker('normal', ledSettings.colorNormal)}
                             />
                         </View>
@@ -644,11 +567,7 @@ export function SettingsScreen() {
                                 placeholderTextColor="rgba(255, 255, 255, 0.3)"
                             />
                             <Pressable
-                                style={({ pressed }) => [
-                                    styles.colorPreview,
-                                    { backgroundColor: ledSettings.colorRedline || '#ff0000' },
-                                    pressed && { opacity: 0.7 }
-                                ]}
+                                style={[styles.colorPreview, { backgroundColor: ledSettings.colorRedline || '#ff0000' }]}
                                 onPress={() => openColorPicker('redline', ledSettings.colorRedline)}
                             />
                         </View>
@@ -669,18 +588,14 @@ export function SettingsScreen() {
 
                 <View style={styles.buttonRow}>
                     <Pressable
-                        style={({ pressed }) => [styles.actionButton, styles.saveButton, pressed && { opacity: 0.6 }]}
+                        style={[styles.actionButton, styles.saveButton]}
                         onPress={handleSaveLed}
                     >
                         <Text style={styles.buttonText}>✓ Salvar LED</Text>
                     </Pressable>
 
                     <Pressable
-                        style={({ pressed }) => [
-                            styles.actionButton,
-                            isLedConnected ? styles.connectButton : {},
-                            pressed && { opacity: 0.6 }
-                        ]}
+                        style={[styles.actionButton, isLedConnected ? styles.connectButton : {}]}
                         onPress={() => (isLedConnected ? disconnectLed() : connectToLed())}
                         disabled={isLedScanning}
                     >
@@ -736,7 +651,7 @@ export function SettingsScreen() {
 
                 <View style={styles.buttonRow}>
                     <Pressable
-                        style={({ pressed }) => [styles.actionButton, styles.saveButton, pressed && { opacity: 0.6 }]}
+                        style={[styles.actionButton, styles.saveButton]}
                         onPress={handleSaveGear}
                     >
                         <Text style={styles.buttonText}>✓ Salvar Rel. Marcha</Text>
@@ -750,12 +665,7 @@ export function SettingsScreen() {
                 onSelectColor={(hex) => handleSelectColor({ hex })}
                 onClose={() => setColorModalVisible(false)}
             />
-            {/* Pop-up flutuante inferior (Toast) */}
-            {toastMessage && (
-                <View style={styles.toastContainer}>
-                    <Text style={styles.toastText}>{toastMessage}</Text>
-                </View>
-            )}
+
         </ScrollView>
     );
 }
@@ -983,29 +893,5 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderRadius: 6,
         alignItems: 'center',
-    },
-    toastContainer: {
-        position: 'absolute',
-        bottom: 24,
-        alignSelf: 'center',
-        backgroundColor: 'rgba(0, 20, 30, 0.95)',
-        borderWidth: 1,
-        borderColor: 'rgba(0, 255, 255, 0.4)',
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 20,
-        shadowColor: '#00ffff',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5,
-        shadowRadius: 10,
-        elevation: 8,
-        zIndex: 999,
-    },
-    toastText: {
-        color: '#00ffcc',
-        fontSize: 13,
-        fontWeight: '700',
-        letterSpacing: 0.5,
-        textAlign: 'center',
     },
 });
