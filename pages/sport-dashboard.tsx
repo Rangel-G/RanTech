@@ -95,10 +95,15 @@ const styles = StyleSheet.create({
         padding: 16,
     },
     telltaleCluster: {
-        right: '-40%',
-        flexDirection: 'column',
+        position: 'absolute',     // Torna o painel flutuante, igual aos gauges
+        right: '5%',              // Fixa no canto direito da tela de forma segura
+        top: '15%',               // Alinha verticalmente com o painel central
+        height: 280,              // CRÍTICO: Define o limite vertical. Quando os ícones baterem aqui, vão para a coluna 2
+        flexDirection: 'column',  // Mantém a ordem de cima para baixo
+        flexWrap: 'wrap',         // Habilita a criação de novas colunas automaticamente
         justifyContent: 'space-evenly',
-        alignItems: 'center',
+        alignContent: 'center',   // Centraliza as múltiplas colunas geradas
+        gap: 12,                  // Espaçamento entre as colunas e linhas
     },
     telemetryGrid: {
         flexDirection: 'row',
@@ -149,14 +154,14 @@ const styles = StyleSheet.create({
     rpmGaugeContainer: {
         position: 'absolute',
         right: '40%',
-        top: '-8%',
+        top: '-60%',
         zIndex: 1,
     },
     tempGaugeContainer: {
         position: 'absolute',
         left: '8%',
-        bottom: '2%',
-        zIndex: 2,
+        top: '120%',
+        zIndex: 1,
     },
     statusBar: {
         flexDirection: 'row',
