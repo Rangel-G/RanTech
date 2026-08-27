@@ -266,90 +266,92 @@ export function SettingsScreen() {
                 )}
             </ExpandablePanel>
 
-            {/* Configurações do Mapa e Perfil do Piloto */}
-            <ExpandablePanel
-                title="Perfil e Configurações do Mapa"
-                icon="🗺️"
-                status={activeGroup ? `🟢 Grupo: ${activeGroup}` : 'Sem Grupo'}
-            >
-                <View style={styles.fieldContainer}>
-                    <Text style={styles.fieldLabel}>Nome do Piloto</Text>
-                    <TextInput
-                        style={styles.textInput}
-                        value={pilotName}
-                        onChangeText={setPilotName}
-                        placeholder="Ex: Ayrton Senna"
-                        placeholderTextColor="rgba(255, 255, 255, 0.3)"
-                    />
-                </View>
-
-                <View style={styles.fieldContainer}>
-                    <Text style={styles.fieldLabel}>Cor do Pointer Pessoal</Text>
-                    <View style={styles.colorPickerWrapper}>
+            {/* Configurações do Mapa e Perfil do Piloto (Exibido apenas se houver e-mail logado) */}
+            {user?.email ? (
+                <ExpandablePanel
+                    title="Perfil e Configurações do Mapa"
+                    icon="🗺️"
+                    status={activeGroup ? `🟢 Grupo: ${activeGroup}` : 'Sem Grupo'}
+                >
+                    <View style={styles.fieldContainer}>
+                        <Text style={styles.fieldLabel}>Nome do Piloto</Text>
                         <TextInput
-                            style={[styles.textInput, styles.colorInput]}
-                            value={mapColor}
-                            editable={false}
-                            placeholder="#00FFFF"
+                            style={styles.textInput}
+                            value={pilotName}
+                            onChangeText={setPilotName}
+                            placeholder="Ex: Ayrton Senna"
                             placeholderTextColor="rgba(255, 255, 255, 0.3)"
                         />
-                        <Pressable
-                            style={[styles.colorPreview, { backgroundColor: mapColor || '#00ffff' }]}
-                            onPress={() => openColorPicker('map', mapColor)}
+                    </View>
+
+                    <View style={styles.fieldContainer}>
+                        <Text style={styles.fieldLabel}>Cor do Pointer Pessoal</Text>
+                        <View style={styles.colorPickerWrapper}>
+                            <TextInput
+                                style={[styles.textInput, styles.colorInput]}
+                                value={mapColor}
+                                editable={false}
+                                placeholder="#00FFFF"
+                                placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                            />
+                            <Pressable
+                                style={[styles.colorPreview, { backgroundColor: mapColor || '#00ffff' }]}
+                                onPress={() => openColorPicker('map', mapColor)}
+                            />
+                        </View>
+                    </View>
+
+                    <View style={styles.buttonRow}>
+                        <Pressable style={[styles.actionButton, styles.saveButton]} onPress={handleSaveMapSettings}>
+                            <Text style={styles.buttonText}>✓ Salvar Perfil / Cor</Text>
+                        </Pressable>
+                    </View>
+
+                    <View style={styles.divider} />
+
+                    <View style={styles.fieldContainer}>
+                        <Text style={styles.fieldLabel}>Nome do Grupo</Text>
+                        <TextInput
+                            style={styles.textInput}
+                            value={groupNameInput}
+                            onChangeText={setGroupNameInput}
+                            placeholder="Ex: Serra do Mar Rally"
+                            placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                            editable={!activeGroup}
                         />
                     </View>
-                </View>
 
-                <View style={styles.buttonRow}>
-                    <Pressable style={[styles.actionButton, styles.saveButton]} onPress={handleSaveMapSettings}>
-                        <Text style={styles.buttonText}>✓ Salvar Perfil / Cor</Text>
-                    </Pressable>
-                </View>
-
-                <View style={styles.divider} />
-
-                <View style={styles.fieldContainer}>
-                    <Text style={styles.fieldLabel}>Nome do Grupo</Text>
-                    <TextInput
-                        style={styles.textInput}
-                        value={groupNameInput}
-                        onChangeText={setGroupNameInput}
-                        placeholder="Ex: Serra do Mar Rally"
-                        placeholderTextColor="rgba(255, 255, 255, 0.3)"
-                        editable={!activeGroup}
-                    />
-                </View>
-
-                <View style={styles.fieldContainer}>
-                    <Text style={styles.fieldLabel}>Senha do Grupo</Text>
-                    <TextInput
-                        style={styles.textInput}
-                        value={groupPasswordInput}
-                        onChangeText={setGroupPasswordInput}
-                        placeholder="••••••••"
-                        placeholderTextColor="rgba(255, 255, 255, 0.3)"
-                        secureTextEntry
-                        editable={!activeGroup}
-                    />
-                </View>
-
-                {activeGroup ? (
-                    <View style={styles.buttonRow}>
-                        <Pressable style={[styles.actionButton, styles.leaveButton]} onPress={handleLeaveGroup}>
-                            <Text style={styles.leaveButtonText}>🚪 Sair do Grupo ({activeGroup})</Text>
-                        </Pressable>
+                    <View style={styles.fieldContainer}>
+                        <Text style={styles.fieldLabel}>Senha do Grupo</Text>
+                        <TextInput
+                            style={styles.textInput}
+                            value={groupPasswordInput}
+                            onChangeText={setGroupPasswordInput}
+                            placeholder="••••••••"
+                            placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                            secureTextEntry
+                            editable={!activeGroup}
+                        />
                     </View>
-                ) : (
-                    <View style={styles.buttonRow}>
-                        <Pressable style={[styles.actionButton, styles.saveButton]} onPress={handleCreateGroup}>
-                            <Text style={styles.buttonText}>➕ Criar Grupo</Text>
-                        </Pressable>
-                        <Pressable style={[styles.actionButton, styles.connectButton]} onPress={handleJoinGroup}>
-                            <Text style={styles.buttonText}>🔑 Entrar no Grupo</Text>
-                        </Pressable>
-                    </View>
-                )}
-            </ExpandablePanel>
+
+                    {activeGroup ? (
+                        <View style={styles.buttonRow}>
+                            <Pressable style={[styles.actionButton, styles.leaveButton]} onPress={handleLeaveGroup}>
+                                <Text style={styles.leaveButtonText}>🚪 Sair do Grupo ({activeGroup})</Text>
+                            </Pressable>
+                        </View>
+                    ) : (
+                        <View style={styles.buttonRow}>
+                            <Pressable style={[styles.actionButton, styles.saveButton]} onPress={handleCreateGroup}>
+                                <Text style={styles.buttonText}>➕ Criar Grupo</Text>
+                            </Pressable>
+                            <Pressable style={[styles.actionButton, styles.connectButton]} onPress={handleJoinGroup}>
+                                <Text style={styles.buttonText}>🔑 Entrar no Grupo</Text>
+                            </Pressable>
+                        </View>
+                    )}
+                </ExpandablePanel>
+            ) : null}
 
             {/* Configuração OBD-II */}
             <ExpandablePanel title="Configurar Conexão OBD" icon="🔌" status={obdSettings.port}>

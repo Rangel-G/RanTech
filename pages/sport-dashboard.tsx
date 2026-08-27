@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     telemetryBox: {
         flex: 1,
         minWidth: '30%',
-        backgroundColor: 'rgba(10, 15, 20, 0.6)',
+        backgroundColor: 'rgb(0, 0, 0)',
         padding: 12,
         borderRadius: 8,
         borderWidth: 1,

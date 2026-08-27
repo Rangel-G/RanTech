@@ -45,15 +45,15 @@ export function RpmTempGaugeCard({
     }, [temperature, maxTemp, needleRotation]);
 
     // Rotação pura com coordenadas de centro do SVG (25.797, 25.797)
-   const animatedNeedleProps = useAnimatedProps(() => ({
-    transform: [
-        { translateX: 25.797 },
-        { translateY: 25.797 },
-        { rotate: `${needleRotation.value}deg` },
-        { translateX: -25.797 },
-        { translateY: -25.797 },
-    ],
-}));
+    const animatedNeedleProps = useAnimatedProps(() => ({
+        transform: [
+            { translateX: 25.797 },
+            { translateY: 25.797 },
+            { rotate: `${needleRotation.value}deg` },
+            { translateX: -25.797 },
+            { translateY: -25.797 },
+        ],
+    }));
 
     return (
         <View style={styles.container}>
@@ -103,6 +103,16 @@ export function RpmTempGaugeCard({
 
                         <Circle cx="25.797" cy="25.797" r="27.12" fill="url(#accel-radialGradient211)" />
                         <Circle transform="rotate(255.38)" cx="-31.474" cy="18.449" r="0.13229" fill="#e31ce0" />
+
+                        {/* ---> INÍCIO DA MÁSCARA ESCURA <--- */}
+                        <Path
+                            d="M 24 32 Q 36 35 50 15 A 26.458 26.458 0 0 1 24 55 Z"
+                            fill="#000"
+                            fillOpacity="0.75"
+                            strokeWidth="0"
+                        />
+                        {/* ---> FIM DA MÁSCARA ESCURA <--- */}
+
 
                         <G fill="#fff" strokeWidth="0">
                             <Path transform="matrix(-.5275 -.091294 .091294 -.5275 43.603 76.128)" d="m48.937 46.794-3.6952-6.439 7.424 0.01933z" />
@@ -161,12 +171,12 @@ const styles = StyleSheet.create({
     },
     tempValue: {
         color: '#fff',
-        fontSize: 18,
+        fontSize: 22,
         fontWeight: 'bold',
     },
     tempUnit: {
         color: '#aaa',
-        fontSize: 12,
+        fontSize: 20,
         marginLeft: 2,
     },
 });

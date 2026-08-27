@@ -19,7 +19,7 @@ export function MiniMapWidget() {
 
             subscription = await Location.watchPositionAsync(
                 {
-                    accuracy: Location.Accuracy.High,
+                    accuracy: Location.Accuracy.BestForNavigation,
                     timeInterval: 2000,
                     distanceInterval: 5,
                 },
