@@ -61,7 +61,7 @@ function CustomTabBarWrapper(props: BottomTabBarProps) {
       >
         <Pressable style={styles.floatingButton} onPress={resetTimer}>
           <Ionicons name="grid-outline" size={24} color={COLORS.tabBar.text} />
-          <Text style={styles.floatingButtonText}>Abas</Text>
+          <Text style={styles.floatingButtonText}>Tabs</Text>
         </Pressable>
       </Animated.View>
     </View>

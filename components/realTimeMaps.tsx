@@ -1,4 +1,4 @@
-import { GroupMember } from '@/services/group-service';
+import { GroupMember } from '@/services/firebase/group-service';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
@@ -9,6 +9,8 @@ interface RealTimeMapProps {
     heading: number;
     userColor?: string;
     members?: GroupMember[];
+    latitudeDelta?: number; 
+    longitudeDelta?: number;
 }
 
 export function RealTimeMap({
@@ -17,6 +19,8 @@ export function RealTimeMap({
     heading,
     userColor = '#00ffff',
     members = [],
+    latitudeDelta = 0.01,
+    longitudeDelta = 0.01,
 }: RealTimeMapProps) {
     return (
         <MapView
@@ -24,11 +28,13 @@ export function RealTimeMap({
             initialRegion={{
                 latitude,
                 longitude,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
+                latitudeDelta,
+                longitudeDelta,
             }}
+        // Desativar interações no mini-mapa pode ser uma boa ideia, 
+        // você pode passar isso via prop depois se quiser
         >
-            {/* Marker do Usuário Atual ajustado com userColor */}
+            {/* Markers mantidos exatamente iguais ao seu código */}
             <Marker
                 coordinate={{ latitude, longitude }}
                 flat
@@ -43,7 +49,6 @@ export function RealTimeMap({
                 </View>
             </Marker>
 
-            {/* Markers dos Outros Membros */}
             {members.map((member) => (
                 <Marker
                     key={member.userId}
@@ -68,30 +73,9 @@ export function RealTimeMap({
 }
 
 const styles = StyleSheet.create({
-    map: {
-        flex: 1,
-    },
-    memberMarkerContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    markerPointer: {
-        width: 16,
-        height: 16,
-        borderRadius: 8,
-        backgroundColor: '#000',
-        borderWidth: 3,
-    },
-    memberNameTag: {
-        backgroundColor: 'rgba(0, 0, 0, 0.75)',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 4,
-        marginTop: 4,
-    },
-    memberNameText: {
-        color: '#fff',
-        fontSize: 10,
-        fontWeight: 'bold',
-    },
+    map: { flex: 1 },
+    memberMarkerContainer: { alignItems: 'center', justifyContent: 'center' },
+    markerPointer: { width: 16, height: 16, borderRadius: 8, backgroundColor: '#000', borderWidth: 3 },
+    memberNameTag: { backgroundColor: 'rgba(0, 0, 0, 0.75)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginTop: 4 },
+    memberNameText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
 });

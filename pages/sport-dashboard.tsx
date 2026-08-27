@@ -1,3 +1,4 @@
+import { MiniMapWidget } from '@/components/miniMapWidget';
 import { IndicatorLight } from '@/components/ui/indicatorLight';
 import { RpmGaugeCard } from '@/components/ui/rpmGauge';
 import { RpmTempGaugeCard } from '@/components/ui/tempGauge';
@@ -49,6 +50,10 @@ export function SportDashboard() {
                         temperature={data.ect}
                         maxTemp={data.ectMax || 110}
                     />
+                </View>
+
+                <View style={styles.miniMapWrapper}>
+                    <MiniMapWidget />
                 </View>
 
 
@@ -184,5 +189,14 @@ const styles = StyleSheet.create({
     statusLabel: {
         fontSize: 12,
         color: COLORS.text.secondary,
+    },
+    miniMapWrapper: {
+        position: 'absolute',
+        left: '55%',  // Posiciona logo à direita do RPM
+        top: '90%',   // Alinha verticalmente com o topo
+        width: 220,   // Largura retangular do mapa
+        height: 220,  // Altura do mapa
+        zIndex: 0,    // Fica atrás dos relógios caso se sobreponham
+        opacity: 0.9,
     },
 });
