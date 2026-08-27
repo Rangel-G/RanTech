@@ -1,15 +1,12 @@
-// /contexts/ConnectionContext.tsx
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import { Device } from 'react-native-ble-plx';
-import { obdService } from '../services/obdService'; // Ajuste o caminho se necessário
+import { OBDDevice, obdService } from '../services/obdService';
 
-// Definindo os estados possíveis da conexão da máquina
 export type ConnectionStatus = 'DISCONNECTED' | 'SCANNING' | 'CONNECTING' | 'CONNECTED' | 'ERROR';
 
 interface ConnectionContextData {
     status: ConnectionStatus;
-    scannedDevices: Device[];
-    connectedDevice: Device | null;
+    scannedDevices: OBDDevice[];
+    connectedDevice: OBDDevice | null;
     errorMessage: string | null;
     startScan: () => void;
     stopScan: () => void;
@@ -21,14 +18,12 @@ const ConnectionContext = createContext<ConnectionContextData>({} as ConnectionC
 
 export const ConnectionProvider = ({ children }: { children: ReactNode }) => {
     const [status, setStatus] = useState<ConnectionStatus>('DISCONNECTED');
-    const [scannedDevices, setScannedDevices] = useState<Device[]>([]);
-    const [connectedDevice, setConnectedDevice] = useState<Device | null>(null);
+    const [scannedDevices, setScannedDevices] = useState<OBDDevice[]>([]);
+    const [connectedDevice, setConnectedDevice] = useState<OBDDevice | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    // Lida com dispositivos encontrados durante o escaneamento
-    const handleDeviceFound = (device: Device) => {
+    const handleDeviceFound = (device: OBDDevice) => {
         setScannedDevices(prev => {
-            // Evita duplicatas na lista
             if (prev.find(d => d.id === device.id)) return prev;
             return [...prev, device];
         });
@@ -43,7 +38,6 @@ export const ConnectionProvider = ({ children }: { children: ReactNode }) => {
 
     const stopScan = () => {
         obdService.stopScan();
-        // Se não estivesse conectando, volta para desconectado
         if (status === 'SCANNING') {
             setStatus('DISCONNECTED');
         }
@@ -57,15 +51,6 @@ export const ConnectionProvider = ({ children }: { children: ReactNode }) => {
 
             setConnectedDevice(device);
             setStatus('CONNECTED');
-
-            // (Opcional, mas recomendado) Observar se o dispositivo desconectou inesperadamente (ex: desligou o carro)
-            device.onDisconnected((error, disconnectedDevice) => {
-                console.warn(`Dispositivo ${disconnectedDevice.id} desconectado.`, error);
-                setStatus('DISCONNECTED');
-                setConnectedDevice(null);
-                setErrorMessage('A conexão com o veículo foi perdida.');
-            });
-
         } catch (error: any) {
             console.error("Falha ao conectar", error);
             setStatus('ERROR');
@@ -79,7 +64,6 @@ export const ConnectionProvider = ({ children }: { children: ReactNode }) => {
         setStatus('DISCONNECTED');
     };
 
-    // Limpeza de segurança (Unmount)
     useEffect(() => {
         return () => {
             obdService.stopScan();
@@ -105,7 +89,6 @@ export const ConnectionProvider = ({ children }: { children: ReactNode }) => {
     );
 };
 
-// Hook customizado para facilitar o uso nos componentes
 export const useConnection = () => {
     const context = useContext(ConnectionContext);
     if (!context) {

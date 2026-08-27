@@ -1,13 +1,11 @@
-// hooks/use-ble-led.ts
 import { useCallback, useEffect, useState } from 'react';
 import { PermissionsAndroid, Platform } from 'react-native';
-import { Device } from 'react-native-ble-plx';
-import { ledService } from '../services/ble/led-service';
+import { LedDevice, ledService } from '../services/ble/led-service';
 
 export interface UseBleLedReturn {
     isScanning: boolean;
     isConnected: boolean;
-    connectedDevice: Device | null;
+    connectedDevice: LedDevice | null;
     error: string | null;
     requestPermissions: () => Promise<boolean>;
     connectToLed: (deviceName: string) => Promise<void>;
@@ -20,7 +18,7 @@ export interface UseBleLedReturn {
 export function useBleLed(): UseBleLedReturn {
     const [isScanning, setIsScanning] = useState<boolean>(false);
     const [isConnected, setIsConnected] = useState<boolean>(false);
-    const [connectedDevice, setConnectedDevice] = useState<Device | null>(null);
+    const [connectedDevice, setConnectedDevice] = useState<LedDevice | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     const requestPermissions = useCallback(async (): Promise<boolean> => {

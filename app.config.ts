@@ -34,14 +34,10 @@ export default {
     plugins: [
       "expo-router",
       [
-        "@config-plugins/react-native-ble-plx",
+        "react-native-ble-manager",
         {
-          "isBackgroundEnabled": true,
-          "modes": [
-            "peripheral",
-            "central"
-          ],
-          "bluetoothAlwaysPermission": "O aplicativo precisa do Bluetooth para se conectar à Fita LED e ao leitor OBDII."
+          "neverForLocation": true,
+          "bluetoothAlwaysPermission": "Permissão para conectar ao dispositivo LED e OBD."
         }
       ],
       [

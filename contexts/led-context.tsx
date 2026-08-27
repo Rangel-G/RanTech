@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Device } from 'react-native-ble-plx';
-import { ledService } from '../services/ble/led-service';
+import { LedDevice, ledService } from '../services/ble/led-service';
 import {
     DEFAULT_LED_SETTINGS,
     LedSettings,
@@ -11,7 +10,7 @@ interface LedContextData {
     ledSettings: LedSettings;
     isScanning: boolean;
     isConnected: boolean;
-    connectedDevice: Device | null;
+    connectedDevice: LedDevice | null;
     error: string | null;
     updateLedSettings: (newSettings: LedSettings) => Promise<void>;
     connectToLed: (customName?: string) => void;
@@ -25,10 +24,9 @@ export const LedProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [ledSettings, setLedSettings] = useState<LedSettings>(DEFAULT_LED_SETTINGS);
     const [isScanning, setIsScanning] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
-    const [connectedDevice, setConnectedDevice] = useState<Device | null>(null);
+    const [connectedDevice, setConnectedDevice] = useState<LedDevice | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // Carrega configurações persistidas ao iniciar
     useEffect(() => {
         SettingsStorage.getLedSettings().then(setLedSettings);
     }, []);
