@@ -1,119 +1,54 @@
-import { ProgressBar } from '@/components/ui/progress-bar';
-import { useReception } from '@/hooks/useReception';
-import { DEFAULT_LED_SETTINGS, SettingsStorage } from '@/services/storage/settings-storage';
-import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useState } from 'react';
+import { ChannelBox } from '@/components/ui/channel-box';
+import { useCarData } from '@/hooks/useCarData';
+import { useFuelConsumption } from '@/hooks/useFuelConsumption';
+import { useHorsepower } from '@/hooks/useHorsePower';
+import { usePerformanceTimer } from '@/hooks/usePerformanceTimer';
+import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 // Cor do LED quando estiver desligado / sem comunicação
 const LED_OFF_COLOR = 'rgba(255, 255, 255, 0.15)';
 
 export function DataloggerScreen() {
-    const { data } = useReception();
+    const { speed, maf } = useCarData();
+    const { litersPerHour, kmPerLiter } = useFuelConsumption(maf, speed);
+    const { zeroToHundred, isTiming } = usePerformanceTimer(speed);
+    const { currentHp, peakHp } = useHorsepower(maf);
 
-    const [redlineRpm, setRedlineRpm] = useState<number>(DEFAULT_LED_SETTINGS.redlineRpm);
 
-    useFocusEffect(
-        useCallback(() => {
-            async function loadLedSettings() {
-                try {
-                    const ledSettings = await SettingsStorage.getLedSettings();
-                    if (ledSettings?.redlineRpm) {
-                        setRedlineRpm(ledSettings.redlineRpm);
-                    }
-                } catch (error) {
-                    console.error('Erro ao carregar configurações de LED:', error);
-                }
-            }
 
-            loadLedSettings();
-        }, [])
-    );
-
-    // ─── Condições dinâmicas de conexão/status ──────────────────────────────
-    const isObdConnected = data.fault === 'OK';
-    const isReceivingData = data.rpm >= 0 && isObdConnected;
-    const isLoggingActive = isReceivingData; // Pode trocar por uma flag real de gravação caso exista
-
-    return (
+   return (
         <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
             <View style={styles.headerSection}>
                 <Text style={styles.sectionTitle}>TELEMETRIA EM TEMPO REAL</Text>
-                <Text style={styles.subtitle}>Dados de Sensores OBD-II</Text>
             </View>
 
-            <ProgressBar
-                label="Frequência Interna"
-                value={`${Math.round(data.rpm)} RPM`}
-                percentage={(data.rpm / data.rpmMax) * 100}
-                baseColor="#00ff66"
-                isWarning={data.rpm > redlineRpm}
-            />
-
-            <ProgressBar
-                label="Pressão de Admissão"
-                value={`${data.map.toFixed(2)} BAR`}
-                percentage={(data.map / data.mapMax) * 100}
-                baseColor="#00fffa"
-            />
-
-            <ProgressBar
-                label="Sensor de Temperatura"
-                value={`${Math.round(data.ect)}°C`}
-                percentage={(data.ect / data.ectMax) * 100}
-                baseColor="#ff9500"
-            />
-
-            {/* Status section */}
-            <View style={styles.statusSection}>
-                <Text style={styles.statusTitle}>STATUS DE CONEXÃO</Text>
-
-                {/* OBD Conectado */}
-                <View style={styles.statusItem}>
-                    <View
-                        style={[
-                            styles.statusDot,
-                            {
-                                backgroundColor: isObdConnected ? '#00ff66' : LED_OFF_COLOR,
-                                shadowColor: isObdConnected ? '#00ff66' : 'transparent',
-                            }
-                        ]}
-                    />
-                    <Text style={[styles.statusText, !isObdConnected && styles.statusTextDisabled]}>
-                        OBD Conectado
-                    </Text>
+            {/* Grid Lado a Lado: Consumo e Vazão */}
+            <View style={styles.row}>
+                <View style={styles.cell}>
+                    <ChannelBox label="Consumo Instantâneo" value={kmPerLiter.toFixed(1)} unit="KM/L" />
                 </View>
-
-                {/* Recebendo Dados */}
-                <View style={styles.statusItem}>
-                    <View
-                        style={[
-                            styles.statusDot,
-                            {
-                                backgroundColor: isReceivingData ? '#00ffff' : LED_OFF_COLOR,
-                                shadowColor: isReceivingData ? '#00ffff' : 'transparent',
-                            }
-                        ]}
-                    />
-                    <Text style={[styles.statusText, !isReceivingData && styles.statusTextDisabled]}>
-                        Recebendo Dados
-                    </Text>
+                <View style={styles.cell}>
+                    <ChannelBox label="Vazão de Combustível" value={litersPerHour.toFixed(1)} unit="L/H" />
                 </View>
+            </View>
 
-                {/* Logging Ativo */}
-                <View style={styles.statusItem}>
-                    <View
-                        style={[
-                            styles.statusDot,
-                            {
-                                backgroundColor: isLoggingActive ? '#ffd700' : LED_OFF_COLOR,
-                                shadowColor: isLoggingActive ? '#ffd700' : 'transparent',
-                            }
-                        ]}
-                    />
-                    <Text style={[styles.statusText, !isLoggingActive && styles.statusTextDisabled]}>
-                        Logging Ativo
-                    </Text>
+            {/* Este ocupa a largura inteira (linha única) */}
+            <View style={styles.fullWidthContainer}>
+                <ChannelBox
+                    label="0-100 KM/H"
+                    value={isTiming ? "CRONOMETRANDO..." : (zeroToHundred ? `${zeroToHundred}s` : "AGUARDANDO")}
+                    unit="PERFORMANCE"
+                />
+            </View>
+
+            {/* Grid Lado a Lado: Potência Atual e Pico */}
+            <View style={styles.row}>
+                <View style={styles.cell}>
+                    <ChannelBox label="Potência Atual" value={currentHp} unit="HP" />
+                </View>
+                <View style={styles.cell}>
+                    <ChannelBox label="Pico de Potência" value={peakHp} unit="MAX HP" theme="warning" />
                 </View>
             </View>
         </ScrollView>
@@ -121,6 +56,17 @@ export function DataloggerScreen() {
 }
 
 const styles = StyleSheet.create({
+    row: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 12,
+    },
+    cell: {
+        flex: 1,
+    },
+    fullWidthContainer: {
+        marginBottom: 12,
+    },
     container: {
         flex: 1,
         backgroundColor: 'rgba(2, 8, 16, 0.96)',

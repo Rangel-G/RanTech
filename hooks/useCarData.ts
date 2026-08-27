@@ -18,6 +18,7 @@ interface CarMetrics {
     timingAdvance: number;// Novo
     iat: number;          // Novo
     fuelLevel: number;    // Novo
+    maf: number;
 }
 
 // Atualize o estado inicial dentro do hook useCarData
@@ -33,7 +34,8 @@ const [metrics, setMetrics] = useState<CarMetrics>({
     map: 0,
     timingAdvance: 0,
     iat: 0,
-    fuelLevel: 0
+    fuelLevel: 0,
+    maf: 0
 });
 
 // Adicione à fila de requisições
@@ -49,6 +51,7 @@ const POLLING_QUEUE = [
     { key: 'timingAdvance', pidConfig: OBD_PIDS.TIMING_ADVANCE },
     { key: 'iat', pidConfig: OBD_PIDS.IAT },
     { key: 'fuelLevel', pidConfig: OBD_PIDS.FUEL_LEVEL },
+    { key: 'maf', pidConfig: OBD_PIDS.MAF },
 ];
 
 export const useCarData = () => {
@@ -67,7 +70,8 @@ export const useCarData = () => {
         map: 0,            // Pressão do Coletor (MAP)
         timingAdvance: 0,  // Avanço de ignição
         iat: 0,            // Temperatura do ar (IAT)
-        fuelLevel: 0       // Nível do tanque
+        fuelLevel: 0,      // Nível do tanque
+        maf: 0             // Fluxo de ar
     });
 
     const currentQueryIndex = useRef(0);

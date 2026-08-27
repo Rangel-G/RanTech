@@ -168,5 +168,17 @@ export const OBD_PIDS: Record<string, ObdPid> = {
             if (bytes.length < 1) return null;
             return (bytes[0] * 100) / 255;
         }
+    },
+    
+    // Fluxo de Ar (MAF)
+    MAF: {
+        pid: '0110',
+        name: 'Mass Air Flow',
+        unit: 'g/s',
+        parse: (hex) => {
+            const bytes = getBytes(hex);
+            if (bytes.length < 2) return null;
+            return ((bytes[0] * 256) + bytes[1]) / 100;
+        }
     }
 };

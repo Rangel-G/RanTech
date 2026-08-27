@@ -6,7 +6,7 @@ const OBD_SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
 const OBD_CHARACTERISTIC_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
 
 // Mude para "false" quando for compilar para o celular e ir para o carro!
-const SIMULATION_MODE = true;
+const SIMULATION_MODE = false;
 
 class OBDService {
     private manager: BleManager;
@@ -189,6 +189,13 @@ class OBDService {
             const level = Math.floor(Math.random() * (100 - 10 + 1)) + 10;
             const A = Math.floor((level * 255) / 100).toString(16).padStart(2, '0').toUpperCase();
             response = `41 2F ${A}`;
+        } else if (cleanCmd === '0110') {
+            // Simula MAF (g/s): 5 a 150 g/s
+            const maf = Math.floor(Math.random() * (150 - 5 + 1)) + 5;
+            const value = maf * 100;
+            const A = Math.floor(value / 256).toString(16).padStart(2, '0').toUpperCase();
+            const B = (value % 256).toString(16).padStart(2, '0').toUpperCase();
+            response = `41 10 ${A} ${B}`;
         }
 
 
