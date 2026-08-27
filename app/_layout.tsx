@@ -31,10 +31,8 @@ export default function RootLayout() {
     }
     setupUI();
 
-
     if (Platform.OS !== 'android') return;
 
-    // Tratamento assíncrono para evitar requisições não tratadas na inicialização
     const configureNavigationBar = async () => {
       try {
         await NavigationBar.setVisibilityAsync('hidden');
