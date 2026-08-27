@@ -1,6 +1,5 @@
 import { useReception } from '@/hooks/useReception';
-import { Audio } from 'expo-av';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Animated, {
     Easing,
@@ -45,37 +44,7 @@ export function RpmRamp({ rpm = 0, style }: RpmRampProps) {
 
     const isWarningThreshold = safeRpm >= ABSOLUTE_MAX_RPM * 0.55;
 
-    // --- RECURSO DE ÁUDIO ---
-    const soundRef = useRef<Audio.Sound | null>(null);
-    const wasInWarningRef = useRef(false);
-
-    // Carrega o áudio em memória ao montar o componente
-    useEffect(() => {
-        async function loadSound() {
-            try {
-                // Configure os áudios para tocar mesmo no modo silencioso do iOS
-                await Audio.setAudioModeAsync({
-                    playsInSilentModeIOS: true,
-                });
-
-                // Carrega o arquivo da sua pasta assets
-                const { sound } = await Audio.Sound.createAsync(
-                    require('@/assets/sounds/shift-beep.mp3')
-                );
-                soundRef.current = sound;
-            } catch (error) {
-                console.log('Erro ao carregar o som de alerta:', error);
-            }
-        }
-
-        loadSound();
-
-        // Descarrega o som da memória quando o componente for desmontado
-        return () => {
-            soundRef.current?.unloadAsync();
-        };
-    }, []);
-
+   
     // Controle Visual e Sonoro
     useEffect(() => {
         animatedWidth.value = withTiming(targetWidth, {
@@ -84,12 +53,6 @@ export function RpmRamp({ rpm = 0, style }: RpmRampProps) {
         });
 
         if (isWarningThreshold) {
-            // Toca o som apenas no MOMENTO EXATO em que cruza a barreira (evita tocar em loop)
-            if (!wasInWarningRef.current && soundRef.current) {
-                soundRef.current.replayAsync();
-                wasInWarningRef.current = true;
-            }
-
             // Animação visual piscando
             alertOpacity.value = withRepeat(
                 withSequence(
@@ -108,7 +71,6 @@ export function RpmRamp({ rpm = 0, style }: RpmRampProps) {
                 true
             );
         } else {
-            wasInWarningRef.current = false;
             alertOpacity.value = withTiming(0, { duration: 100 });
             alertScale.value = withTiming(1, { duration: 100 });
         }

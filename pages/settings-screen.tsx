@@ -1,5 +1,6 @@
 import { ColorPickerModal } from '@/components/colorPickerModal';
 import { ExpandablePanel } from '@/components/ui/expandable-panel';
+import { useConnection } from '@/contexts/connectionContext';
 import { useGroup } from '@/contexts/group-context';
 import { useLed } from '@/contexts/led-context';
 import { UserService } from '@/services/firebase/user-service';
@@ -24,6 +25,7 @@ import {
 } from '../services/storage/settings-storage';
 
 export function SettingsScreen() {
+    const { status, connect, disconnect } = useConnection();
 
     const [colorModalVisible, setColorModalVisible] = useState(false);
     const [currentColorKey, setCurrentColorKey] = useState<'map' | 'normal' | 'redline' | null>(null);
@@ -453,13 +455,22 @@ export function SettingsScreen() {
                         <Text style={styles.buttonText}>✓ Salvar Conexão</Text>
                     </Pressable>
                     <Pressable
-                        style={[styles.actionButton, obdSettings.connected ? styles.connectButton : {}]}
-                        onPress={() =>
-                            setObdSettings({ ...obdSettings, connected: !obdSettings.connected })
-                        }
+                        style={[
+                            styles.actionButton,
+                            status === 'CONNECTED' ? styles.connectButton : {}
+                        ]}
+                        onPress={() => {
+                            if (status === 'CONNECTED') {
+                                disconnect();
+                            } else {
+                                // Utiliza a porta/ID definida no input para tentar a conexão
+                                connect(obdSettings.port);
+                            }
+                        }}
                     >
                         <Text style={styles.buttonText}>
-                            {obdSettings.connected ? '✓ Conectado' : 'Conectar'}
+                            {status === 'CONNECTING' ? 'Conectando...' :
+                                status === 'CONNECTED' ? '✓ Conectado' : 'Conectar'}
                         </Text>
                     </Pressable>
                 </View>

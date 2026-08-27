@@ -1,5 +1,6 @@
 import { ChannelBox } from '@/components/ui/channel-box';
 import { RpmRamp } from '@/components/ui/rpmRamp';
+import { useCarData } from '@/hooks/useCarData';
 import { useReception } from '@/hooks/useReception';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -7,13 +8,14 @@ import { StyleSheet, View } from 'react-native';
 export function DailyDashboard() {
 
     const { data } = useReception()
+    const { rpm, speed, coolantTemp, throttlePos, battery, engineLoad } = useCarData();
 
     return (
         <View style={styles.container}>
             {/* Main Grid Layout replicating HTML structure */}
 
             <View style={styles.rpmContainer}>
-                <RpmRamp rpm={data.rpm} rpmMax={data.rpmMax} />
+                <RpmRamp rpm={rpm} rpmMax={data.rpmMax} />
             </View>
 
             <View style={styles.gridContainer}>
@@ -23,7 +25,7 @@ export function DailyDashboard() {
                 <View style={styles.leftColumn}>
                     <ChannelBox
                         label="Velocidade"
-                        value={Math.round(data.speed)}
+                        value={Math.round(speed)}
                         unit="KM/H"
                         size="large"
                         theme="default"
@@ -46,10 +48,10 @@ export function DailyDashboard() {
                         <View style={styles.cell}>
                             <ChannelBox
                                 label="Temp. Motor"
-                                value={Math.round(data.ect)}
+                                value={Math.round(coolantTemp)}
                                 unit="°C"
                                 size="small"
-                                theme={data.ect > 95 ? 'warning' : 'default'}
+                                theme={coolantTemp > 95 ? 'warning' : 'default'}
                             />
                         </View>
                     </View>
@@ -59,10 +61,10 @@ export function DailyDashboard() {
                         <View style={styles.cell}>
                             <ChannelBox
                                 label="Bateria"
-                                value={data.battery.toFixed(1)}
+                                value={battery.toFixed(1)}
                                 unit="VOLTS"
                                 size="small"
-                                theme={data.battery < 12 ? 'error' : 'default'}
+                                theme={battery < 12 ? 'error' : 'default'}
                             />
                         </View>
                         <View style={styles.cell}>

@@ -1,3 +1,4 @@
+import { ConnectionProvider } from '@/contexts/connectionContext';
 import { DashboardProfileProvider } from '@/contexts/dashboard-profile-context';
 import { GroupProvider } from '@/contexts/group-context';
 import { LedProvider } from '@/contexts/led-context';
@@ -48,32 +49,34 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <GroupProvider>
-        <LedProvider>
-          <TelemetryProvider>
-            <DashboardProfileProvider>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen
-                  name="modal"
-                  options={{
-                    presentation: 'modal',
-                    title: 'Modal',
-                    headerShown: true,
-                  }}
-                />
-                <Stack.Screen
-                  name="realMap"
-                  options={{
-                    headerBackTitle: 'Voltar',
-                  }}
-                />
-              </Stack>
-              <StatusBar hidden translucent backgroundColor="transparent" />
-            </DashboardProfileProvider>
-          </TelemetryProvider>
-        </LedProvider>
-      </GroupProvider>
+      <ConnectionProvider>
+        <GroupProvider>
+          <LedProvider>
+            <TelemetryProvider>
+              <DashboardProfileProvider>
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen
+                    name="modal"
+                    options={{
+                      presentation: 'modal',
+                      title: 'Modal',
+                      headerShown: true,
+                    }}
+                  />
+                  <Stack.Screen
+                    name="realMap"
+                    options={{
+                      headerBackTitle: 'Voltar',
+                    }}
+                  />
+                </Stack>
+                <StatusBar hidden translucent backgroundColor="transparent" />
+              </DashboardProfileProvider>
+            </TelemetryProvider>
+          </LedProvider>
+        </GroupProvider>
+      </ConnectionProvider>
     </ThemeProvider>
   );
 }

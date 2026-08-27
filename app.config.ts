@@ -33,36 +33,36 @@ export default {
     plugins: [
       "expo-router",
       [
-        "react-native-ble-plx",
+        "@config-plugins/react-native-ble-plx",
         {
-          isBackgroundEnabled: true,
-          modes: [
+          "isBackgroundEnabled": true,
+          "modes": [
             "peripheral",
             "central"
           ],
-          bluetoothAlwaysPermission: "O aplicativo precisa do Bluetooth para se conectar à Fita LED e ao leitor OBDII."
+          "bluetoothAlwaysPermission": "O aplicativo precisa do Bluetooth para se conectar à Fita LED e ao leitor OBDII."
         }
       ],
       [
         "expo-navigation-bar",
         {
-          visibility: "hidden",
-          behavior: "inset-touch",
-          backgroundColor: "#000000"
+          "visibility": "hidden",
+          "behavior": "inset-touch",
+          "backgroundColor": "#000000"
         }
       ],
       [
         "expo-splash-screen",
         {
-          image: "./assets/splash.png",
-          resizeMode: "contain",
-          backgroundColor: "#000000"
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#000000"
         }
       ],
       [
         "@react-native-google-signin/google-signin",
         {
-          iosUrlScheme: "com.googleusercontent.apps.3279657a-969d-43cc-bee1-c6ccf7797e67"
+          "iosUrlScheme": "com.googleusercontent.apps.3279657a-969d-43cc-bee1-c6ccf7797e67"
         }
       ]
     ],
