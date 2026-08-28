@@ -19,6 +19,33 @@ export interface LocationPayload {
     name?: string;
 }
 
+export interface RouteCoordinate {
+    latitude: number;
+    longitude: number;
+}
+
+export interface RouteData {
+    routeId: string;
+    creatorId: string;
+    creatorName: string;
+    color: string;
+    status: 'active' | 'completed';
+    origin: RouteCoordinate;
+    destination: RouteCoordinate & { address?: string };
+    coordinates: RouteCoordinate[];
+    completedUsers: Record<string, boolean>;
+    updatedAt: number;
+}
+
+export interface RoutePayload {
+    creatorId: string;
+    creatorName: string;
+    color: string;
+    origin: RouteCoordinate;
+    destination: RouteCoordinate & { address?: string };
+    coordinates: RouteCoordinate[];
+}
+
 // Limpa caracteres inválidos para chaves do Firebase Realtime DB
 const sanitizeGroupName = (name: string) =>
     name.trim().toLowerCase().replace(/[.#$/\[\]]/g, '_');
@@ -115,4 +142,69 @@ export const GroupService = {
 
         return unsubscribe;
     },
+
+    /**
+     * Salva ou adiciona uma nova rota no grupo
+     */
+    async saveRoute(
+        groupKey: string,
+        routeId: string,
+        routePayload: RoutePayload
+    ): Promise<void> {
+        const routeRef = ref(rtdb, `groups/${groupKey}/routes/${routeId}`);
+        await set(routeRef, {
+            ...routePayload,
+            routeId,
+            status: 'active',
+            completedUsers: {},
+            updatedAt: Date.now(),
+        });
+    },
+
+    /**
+     * Escuta em tempo real todas as rotas ativas do grupo
+     */
+    subscribeToRoutes(
+        groupKey: string,
+        onRoutesUpdate: (routes: RouteData[]) => void
+    ): () => void {
+        const routesRef = ref(rtdb, `groups/${groupKey}/routes`);
+
+        const unsubscribe = onValue(routesRef, (snapshot) => {
+            if (!snapshot.exists()) {
+                onRoutesUpdate([]);
+                return;
+            }
+
+            const rawData = snapshot.val();
+            const routesList: RouteData[] = Object.keys(rawData).map((id) => ({
+                ...rawData[id],
+                routeId: id,
+            }));
+
+            onRoutesUpdate(routesList);
+        });
+
+        return unsubscribe;
+    },
+
+    /**
+     * Marca que um usuário concluiu uma rota específica
+     */
+    async markRouteCompleted(
+        groupKey: string,
+        routeId: string,
+        userId: string
+    ): Promise<void> {
+        const userCompletedRef = ref(rtdb, `groups/${groupKey}/routes/${routeId}/completedUsers/${userId}`);
+        await set(userCompletedRef, true);
+    },
+
+    /**
+     * Remove uma rota específica do grupo
+     */
+    async removeRoute(groupKey: string, routeId: string): Promise<void> {
+        const routeRef = ref(rtdb, `groups/${groupKey}/routes/${routeId}`);
+        await remove(routeRef);
+    }
 };
