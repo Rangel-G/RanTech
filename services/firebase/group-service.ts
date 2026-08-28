@@ -227,5 +227,13 @@ export const GroupService = {
     async removeRoute(groupKey: string, routeId: string): Promise<void> {
         const routeRef = ref(rtdb, `groups/${groupKey}/routes/${routeId}`);
         await remove(routeRef);
-    }
+    },
+
+    /**
+     * Remove todas as rotas ativas de um grupo
+     */
+    async clearRoutes(groupKey: string): Promise<void> {
+        const routesRef = ref(rtdb, `groups/${groupKey}/routes`);
+        await remove(routesRef);
+    },
 };

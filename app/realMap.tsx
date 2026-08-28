@@ -110,6 +110,10 @@ export default function RealMapScreen() {
                 const lastRoute = routes[routes.length - 1];
                 origin = lastRoute.destination;
             } else {
+                // Se for substituir, limpamos as rotas antigas do banco primeiro
+                if (mode === 'replace') {
+                    await GroupService.clearRoutes(activeGroup);
+                }
                 origin = { latitude: userLocation.latitude, longitude: userLocation.longitude };
             }
 
