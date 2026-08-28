@@ -1,6 +1,6 @@
 // contexts/group-context.tsx
 import { auth } from '@/services/firebase/firebase';
-import { GroupService } from '@/services/firebase/group-service';
+import { GroupMember, GroupService } from '@/services/firebase/group-service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     GoogleSignin,
@@ -24,6 +24,7 @@ interface GroupContextType {
     userName: string;
     pointerColor: string;
     isAuthenticating: boolean;
+    members: GroupMember[];
     promptGoogleLogin: () => Promise<void>;
     logout: () => Promise<void>;
     saveMapSettings: (color: string, name: string) => Promise<void>;
@@ -34,8 +35,6 @@ interface GroupContextType {
 
 const GroupContext = createContext<GroupContextType>({} as GroupContextType);
 
-// IMPORTANTE: webClientId = OAuth Client ID tipo "Web application" do Google Cloud Console
-// (o mesmo vinculado ao projeto Firebase). NÃO é o Web App do Firebase.
 GoogleSignin.configure({
     webClientId: '4155845801-6lu7s8nhlu1ec34jremb3vm100kh7l58.apps.googleusercontent.com',
     offlineAccess: false,
@@ -47,7 +46,9 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     const [userName, setUserName] = useState<string>('Piloto');
     const [pointerColor, setPointerColor] = useState<string>('#00ffff');
     const [isAuthenticating, setIsAuthenticating] = useState(false);
+    const [members, setMembers] = useState<GroupMember[]>([]);
 
+    // 1º UseEffect: Gerencia a autenticação e carrega os dados locais
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             setUser(currentUser);
@@ -68,6 +69,26 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
 
         return () => unsubscribe();
     }, []);
+
+    // 2º UseEffect: Conecta no Firebase para escutar os membros em tempo real
+    useEffect(() => {
+        let unsubscribeGroup: (() => void) | undefined;
+
+        if (activeGroup) {
+            // Utiliza a função subscribeToMembers do GroupService
+            unsubscribeGroup = GroupService.subscribeToMembers(activeGroup, (updatedMembers) => {
+                // Filtra para não mostrar você mesmo na lista de "outros membros"
+                const otherMembers = updatedMembers.filter(m => m.userId !== user?.uid);
+                setMembers(otherMembers);
+            });
+        } else {
+            setMembers([]); // Limpa a lista se sair do grupo
+        }
+
+        return () => {
+            if (unsubscribeGroup) unsubscribeGroup();
+        };
+    }, [activeGroup, user?.uid]);
 
     const promptGoogleLogin = async () => {
         setIsAuthenticating(true);
@@ -158,6 +179,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
                 userName,
                 pointerColor,
                 isAuthenticating,
+                members,
                 promptGoogleLogin,
                 logout,
                 saveMapSettings,
