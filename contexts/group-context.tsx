@@ -1,6 +1,6 @@
 // contexts/group-context.tsx
 import { auth } from '@/services/firebase/firebase';
-import { GroupMember, GroupService } from '@/services/firebase/group-service';
+import { GroupMember, GroupService, RouteData, RoutePayload } from '@/services/firebase/group-service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     GoogleSignin,
@@ -25,12 +25,15 @@ interface GroupContextType {
     pointerColor: string;
     isAuthenticating: boolean;
     members: GroupMember[];
+    routes: RouteData[];
     promptGoogleLogin: () => Promise<void>;
     logout: () => Promise<void>;
     saveMapSettings: (color: string, name: string) => Promise<void>;
     createGroup: (groupName: string, password: string) => Promise<void>;
     joinGroup: (groupName: string, password: string) => Promise<void>;
     leaveGroup: () => Promise<void>;
+    saveRoute: (routeId: string, payload: RoutePayload) => Promise<void>;
+    removeRoute: (routeId: string) => Promise<void>;
 }
 
 const GroupContext = createContext<GroupContextType>({} as GroupContextType);
@@ -47,6 +50,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     const [pointerColor, setPointerColor] = useState<string>('#00ffff');
     const [isAuthenticating, setIsAuthenticating] = useState(false);
     const [members, setMembers] = useState<GroupMember[]>([]);
+    const [routes, setRoutes] = useState<RouteData[]>([]);
 
     // 1º UseEffect: Gerencia a autenticação e carrega os dados locais
     useEffect(() => {
@@ -89,6 +93,22 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
             if (unsubscribeGroup) unsubscribeGroup();
         };
     }, [activeGroup, user?.uid]);
+
+    useEffect(() => {
+        let unsubscribeRoutes: (() => void) | undefined;
+
+        if (activeGroup) {
+            unsubscribeRoutes = GroupService.subscribeToRoutes(activeGroup, (updatedRoutes) => {
+                setRoutes(updatedRoutes);
+            });
+        } else {
+            setRoutes([]);
+        }
+
+        return () => {
+            if (unsubscribeRoutes) unsubscribeRoutes();
+        };
+    }, [activeGroup]);
 
     const promptGoogleLogin = async () => {
         setIsAuthenticating(true);
@@ -170,6 +190,17 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
         setActiveGroup(null);
     };
 
+    // Funções de gerenciamento de rotas expostas
+    const saveRoute = async (routeId: string, payload: RoutePayload) => {
+        if (!activeGroup) throw new Error('Nenhum grupo ativo.');
+        await GroupService.saveRoute(activeGroup, routeId, payload);
+    };
+
+    const removeRoute = async (routeId: string) => {
+        if (!activeGroup) throw new Error('Nenhum grupo ativo.');
+        await GroupService.removeRoute(activeGroup, routeId);
+    };
+
     return (
         <GroupContext.Provider
             value={{
@@ -186,6 +217,9 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
                 createGroup,
                 joinGroup,
                 leaveGroup,
+                routes,
+                saveRoute,
+                removeRoute,
             }}
         >
             {children}

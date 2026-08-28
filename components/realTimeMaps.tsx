@@ -1,4 +1,5 @@
-import { GroupMember } from '@/services/firebase/group-service';
+import { GroupMember, RouteCoordinate } from '@/services/firebase/group-service';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
@@ -11,6 +12,8 @@ interface RealTimeMapProps {
     members?: GroupMember[];
     latitudeDelta?: number;
     longitudeDelta?: number;
+    temporaryDestination?: RouteCoordinate | null;
+    onLongPressMap?: (coordinate: RouteCoordinate) => void;
 }
 
 export function RealTimeMap({
@@ -21,6 +24,8 @@ export function RealTimeMap({
     members = [],
     latitudeDelta = 0.01,
     longitudeDelta = 0.01,
+    temporaryDestination,
+    onLongPressMap,
 }: RealTimeMapProps) {
     const mapRef = useRef<MapView>(null);
 
@@ -68,7 +73,7 @@ export function RealTimeMap({
             }}
             onTouchStart={handleUserTouch}
             onPanDrag={handleUserTouch}
-            
+
             // Defesa Camada 2: Proteção extra para o Zoom (Pinça)
             onRegionChange={(region, details) => {
                 // Se a câmera se mexeu e NÃO foi o nosso GPS que mandou, o usuário interagiu.
@@ -77,7 +82,7 @@ export function RealTimeMap({
                     if (timeoutRef.current) clearTimeout(timeoutRef.current);
                 }
             }}
-            
+
             // Defesa Camada 3: Só aciona os 3 segundos quando a tela PARAR de se mexer completamente
             onRegionChangeComplete={(region, details) => {
                 // Guarda o zoom que o usuário escolheu para não dar "zoom in" indesejado ao voltar
@@ -97,7 +102,7 @@ export function RealTimeMap({
                     timeoutRef.current = setTimeout(() => {
                         isFollowing.current = true;
                         isProgrammaticMove.current = true; // Avisa que será um movimento de código
-                        
+
                         // Faz a viagem de volta para o usuário
                         mapRef.current?.animateToRegion({
                             latitude: latestCoords.current.latitude,
@@ -108,7 +113,23 @@ export function RealTimeMap({
                     }, 3000);
                 }
             }}
+
+            onLongPress={(e) => {
+                if (onLongPressMap) {
+                    onLongPressMap(e.nativeEvent.coordinate);
+                }
+            }}
         >
+
+            {/* Marcador Provisório de Destino Selecionado */}
+            {temporaryDestination && (
+                <Marker coordinate={temporaryDestination}>
+                    <View style={styles.destMarkerContainer}>
+                        <MaterialCommunityIcons name="flag-checkered" size={24} color="#ffcc00" />
+                    </View>
+                </Marker>
+            )}
+
             <Marker
                 coordinate={{ latitude, longitude }}
                 flat
@@ -152,4 +173,13 @@ const styles = StyleSheet.create({
     markerPointer: { width: 16, height: 16, borderRadius: 8, backgroundColor: '#000', borderWidth: 3 },
     memberNameTag: { backgroundColor: 'rgba(0, 0, 0, 0.75)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginTop: 4 },
     memberNameText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
+    destMarkerContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        borderRadius: 16,
+        padding: 4,
+        borderWidth: 1,
+        borderColor: '#ffcc00'
+    },
 });
