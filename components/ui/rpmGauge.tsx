@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: '45%',
         left: 0,
-        right: '15%',
+        right: '22%',
         alignItems: 'flex-end',
         justifyContent: 'center',
     },

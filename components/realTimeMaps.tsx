@@ -9,7 +9,7 @@ interface RealTimeMapProps {
     heading: number;
     userColor?: string;
     members?: GroupMember[];
-    latitudeDelta?: number; 
+    latitudeDelta?: number;
     longitudeDelta?: number;
 }
 
@@ -25,7 +25,7 @@ export function RealTimeMap({
     return (
         <MapView
             style={styles.map}
-            initialRegion={{
+            region={{
                 latitude,
                 longitude,
                 latitudeDelta,

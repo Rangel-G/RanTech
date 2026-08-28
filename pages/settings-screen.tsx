@@ -25,7 +25,7 @@ import {
 } from '../services/storage/settings-storage';
 
 export function SettingsScreen() {
-    const { status, connect, disconnect } = useConnection();
+    const { status, scannedDevices, errorMessage, startScan, stopScan, connect, disconnect } = useConnection();
 
     const [colorModalVisible, setColorModalVisible] = useState(false);
     const [currentColorKey, setCurrentColorKey] = useState<'map' | 'normal' | 'redline' | null>(null);
@@ -43,7 +43,6 @@ export function SettingsScreen() {
         if (currentColorKey === 'redline') updateLedSettings({ ...ledSettings, colorRedline: hex });
     };
 
-    // Contexto de Grupo e Autenticação (Unificado)
     const {
         user,
         activeGroup,
@@ -447,6 +446,45 @@ export function SettingsScreen() {
                     </View>
                 </View>
 
+                <View style={styles.fieldContainer}>
+                    <Text style={styles.fieldLabel}>Dispositivo OBD (Bluetooth LE)</Text>
+
+                    <Pressable
+                        style={[styles.actionButton, status === 'SCANNING' && styles.connectButton]}
+                        onPress={() => (status === 'SCANNING' ? stopScan() : startScan())}
+                        disabled={status === 'CONNECTING'}
+                    >
+                        <Text style={styles.buttonText}>
+                            {status === 'SCANNING' ? '⏹ Parar Busca' : '🔍 Buscar Adaptador OBD'}
+                        </Text>
+                    </Pressable>
+
+                    {status === 'SCANNING' && (
+                        <ActivityIndicator size="small" color="#00ffff" style={{ marginTop: 10 }} />
+                    )}
+
+                    {errorMessage && (
+                        <Text style={{ color: '#ff6666', fontSize: 12, marginTop: 8 }}>{errorMessage}</Text>
+                    )}
+
+                    {scannedDevices.length > 0 && (
+                        <View style={[styles.selectContainer, { marginTop: 10 }]}>
+                            {scannedDevices.map((device) => (
+                                <Pressable
+                                    key={device.id}
+                                    style={styles.selectButton}
+                                    onPress={() => connect(device.id)}
+                                    disabled={status === 'CONNECTING'}
+                                >
+                                    <Text style={styles.selectButtonText}>
+                                        {device.name || device.id}
+                                    </Text>
+                                </Pressable>
+                            ))}
+                        </View>
+                    )}
+                </View>
+
                 <View style={styles.buttonRow}>
                     <Pressable
                         style={[styles.actionButton, styles.saveButton]}
@@ -454,25 +492,15 @@ export function SettingsScreen() {
                     >
                         <Text style={styles.buttonText}>✓ Salvar Conexão</Text>
                     </Pressable>
-                    <Pressable
-                        style={[
-                            styles.actionButton,
-                            status === 'CONNECTED' ? styles.connectButton : {}
-                        ]}
-                        onPress={() => {
-                            if (status === 'CONNECTED') {
-                                disconnect();
-                            } else {
-                                // Utiliza a porta/ID definida no input para tentar a conexão
-                                connect(obdSettings.port);
-                            }
-                        }}
-                    >
-                        <Text style={styles.buttonText}>
-                            {status === 'CONNECTING' ? 'Conectando...' :
-                                status === 'CONNECTED' ? '✓ Conectado' : 'Conectar'}
-                        </Text>
-                    </Pressable>
+
+                    {status === 'CONNECTED' && (
+                        <Pressable
+                            style={[styles.actionButton, styles.connectButton]}
+                            onPress={disconnect}
+                        >
+                            <Text style={styles.buttonText}>✓ Conectado — Desconectar</Text>
+                        </Pressable>
+                    )}
                 </View>
             </ExpandablePanel>
 
