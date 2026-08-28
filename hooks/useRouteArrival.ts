@@ -1,44 +1,55 @@
-import { useGroup } from '@/contexts/group-context';
-import { GroupService } from '@/services/firebase/group-service';
-import { calculateDistanceInMeters } from '@/utils/distance';
-import { useEffect } from 'react';
+import { useGroup } from "@/contexts/group-context";
+import { GroupService } from "@/services/firebase/group-service";
+import { UserService } from "@/services/firebase/user-service";
+import { calculateDistanceInMeters } from "@/utils/distance";
+import { useEffect } from "react";
 
 export function useRouteArrival(currentLat?: number, currentLng?: number) {
-    const { activeGroup, userId, routes, members } = useGroup();
+  const { activeGroup, userId, routes, members } = useGroup();
 
-    useEffect(() => {
-        if (!activeGroup || !userId || !currentLat || !currentLng || routes.length === 0) return;
+  useEffect(() => {
+    if (!userId || !currentLat || !currentLng || routes.length === 0) return;
 
-        routes.forEach(async (route) => {
-            if (route.completedUsers && route.completedUsers[userId]) return;
+    routes.forEach(async (route) => {
+      // Se o usuário já concluiu esta rota, ignora
+      if (route.completedUsers && route.completedUsers[userId]) return;
 
-            if (route.destination) {
-                const distance = calculateDistanceInMeters(
-                    currentLat,
-                    currentLng,
-                    route.destination.latitude,
-                    route.destination.longitude
-                );
+      if (route.destination) {
+        const distance = calculateDistanceInMeters(
+          currentLat,
+          currentLng,
+          route.destination.latitude,
+          route.destination.longitude,
+        );
 
-                // Se estiver a menos de 30 metros do destino
-                if (distance <= 30) {
-                    try {
-                        // 1. Marca como concluído para o usuário atual
-                        await GroupService.markRouteCompleted(activeGroup, route.routeId, userId);
+        // Proximidade de 30 metros do destino
+        if (distance <= 30) {
+          try {
+            if (route.isPrivate) {
+              // ROTA PRIVADA: Remove diretamente do nó do usuário no Firebase
+              await UserService.removePrivateRoute(userId, route.routeId);
+            } else if (activeGroup) {
+              // ROTA PÚBLICA: Aplica a regra de conclusão em grupo
+              await GroupService.markRouteCompleted(
+                activeGroup,
+                route.routeId,
+                userId,
+              );
 
-                        // 2. Verifica se todos os membros concluíram a rota
-                        const totalMembersCount = members.length + 1; // Membros ativos + usuário atual
-                        const completedCount = Object.keys(route.completedUsers || {}).length + 1;
+              const totalMembersCount = members.length + 1;
+              const completedCount =
+                Object.keys(route.completedUsers || {}).length + 1;
 
-                        if (completedCount >= totalMembersCount) {
-                            // Se todos chegaram, remove a rota do banco de dados
-                            await GroupService.removeRoute(activeGroup, route.routeId);
-                        }
-                    } catch (error) {
-                        console.error('Erro ao processar chegada na rota:', error);
-                    }
-                }
+              // Se todos os membros ativos concluíram, remove do grupo
+              if (completedCount >= totalMembersCount) {
+                await GroupService.removeRoute(activeGroup, route.routeId);
+              }
             }
-        });
-    }, [currentLat, currentLng, routes, activeGroup, userId, members]);
+          } catch (error) {
+            console.error("Erro ao processar chegada ao destino:", error);
+          }
+        }
+      }
+    });
+  }, [currentLat, currentLng, routes, activeGroup, userId, members]);
 }
