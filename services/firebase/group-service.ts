@@ -108,12 +108,33 @@ export const GroupService = {
         });
     },
 
+
     /**
-     * Remove o marcador do usuário do grupo ao sair
-     */
+      * Remove o marcador do usuário e limpa as rotas criadas por ele ao sair do grupo
+      */
     async leaveGroup(groupKey: string, userId: string): Promise<void> {
+        // 1. Remove o membro
         const memberRef = ref(rtdb, `groups/${groupKey}/members/${userId}`);
         await remove(memberRef);
+
+        // 2. Busca e remove as rotas criadas por este usuário
+        const routesRef = ref(rtdb, `groups/${groupKey}/routes`);
+        const snapshot = await get(routesRef);
+
+        if (snapshot.exists()) {
+            const routesData = snapshot.val();
+            const updates: Record<string, null> = {};
+
+            Object.keys(routesData).forEach((routeId) => {
+                if (routesData[routeId].creatorId === userId) {
+                    updates[`groups/${groupKey}/routes/${routeId}`] = null;
+                }
+            });
+
+            if (Object.keys(updates).length > 0) {
+                await update(ref(rtdb), updates);
+            }
+        }
     },
 
     /**
