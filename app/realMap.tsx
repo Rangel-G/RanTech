@@ -1,7 +1,10 @@
 import { RealTimeMap } from '@/components/realTimeMaps';
+import { RouteDecisionModal } from '@/components/routeDecisionModal';
+import { RouteSearchBar } from '@/components/RouteSearchBar';
 import { useGroup } from '@/contexts/group-context';
 import { useReception } from '@/hooks/useReception';
-import { GroupMember, GroupService } from '@/services/firebase/group-service';
+import { GroupMember, GroupService, RouteCoordinate } from '@/services/firebase/group-service';
+import { DirectionsService } from '@/services/google/directionService';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -9,7 +12,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 export default function RealMapScreen() {
     const { data } = useReception();
-    const { activeGroup, userId, userName, pointerColor } = useGroup();
+    const { activeGroup, userId, userName, pointerColor, routes, saveRoute } = useGroup();
 
     const [userLocation, setUserLocation] = useState<{
         latitude: number;
@@ -17,6 +20,14 @@ export default function RealMapScreen() {
     } | null>(null);
 
     const [members, setMembers] = useState<GroupMember[]>([]);
+
+    // Estados locais de controle de fluxo de rota
+    const [temporaryDestination, setTemporaryDestination] = useState<RouteCoordinate | null>(null);
+    const [destinationAddress, setDestinationAddress] = useState<string>('');
+    const [modalVisible, setModalVisible] = useState(false);
+    const [pendingCoords, setPendingCoords] = useState<RouteCoordinate | null>(null);
+
+    const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
     // 1. Escuta membros do grupo em tempo real
     useEffect(() => {
@@ -75,6 +86,60 @@ export default function RealMapScreen() {
         };
     }, [activeGroup, userId, userName, pointerColor, data.heading]);
 
+    // 3. Acionado quando o usuário busca um endereço ou pressiona longamente o mapa
+    const handleSelectDestination = (coordinate: RouteCoordinate, address?: string) => {
+        setTemporaryDestination(coordinate);
+        setDestinationAddress(address || 'Destino no Mapa');
+        setPendingCoords(coordinate);
+
+        if (routes.length > 0) {
+            setModalVisible(true);
+        } else {
+            processAndSaveRoute(coordinate, 'replace');
+        }
+    };
+
+    // 4. Processa o cálculo na Directions API e salva no Firebase
+    const processAndSaveRoute = async (destination: RouteCoordinate, mode: 'replace' | 'nextStop') => {
+        if (!userLocation || !activeGroup) return;
+
+        try {
+            let origin: RouteCoordinate;
+
+            if (mode === 'nextStop' && routes.length > 0) {
+                const lastRoute = routes[routes.length - 1];
+                origin = lastRoute.destination;
+            } else {
+                origin = { latitude: userLocation.latitude, longitude: userLocation.longitude };
+            }
+
+            const routeResult = await DirectionsService.getRoute(origin, destination, apiKey);
+
+            const routeId = `rota_${Date.now()}`;
+            const payload = {
+                creatorId: userId || 'unknown',
+                creatorName: userName,
+                color: pointerColor,
+                origin,
+                destination: {
+                    latitude: destination.latitude,
+                    longitude: destination.longitude,
+                    address: destinationAddress,
+                },
+                coordinates: routeResult.coordinates,
+            };
+
+            await saveRoute(routeId, payload);
+
+            setTemporaryDestination(null);
+            setModalVisible(false);
+            setPendingCoords(null);
+        } catch (error: any) {
+            console.error('Erro ao gerar rota:', error);
+            alert(error.message || 'Não foi possível traçar a rota.');
+        }
+    };
+
     if (!userLocation) {
         return (
             <View style={styles.loadingContainer}>
@@ -85,6 +150,11 @@ export default function RealMapScreen() {
 
     return (
         <View style={styles.container}>
+            {/* Barra de Pesquisa Flutuante */}
+            <RouteSearchBar
+                onDestinationSelected={(loc, addr) => handleSelectDestination(loc, addr)}
+            />
+
             {/* Botão de Voltar Flutuante */}
             <Pressable style={styles.backButton} onPress={() => router.back()}>
                 <Text style={styles.backButtonText}>← Voltar</Text>
@@ -94,13 +164,30 @@ export default function RealMapScreen() {
                 latitude={userLocation.latitude}
                 longitude={userLocation.longitude}
                 heading={data.heading ?? 0}
-                userColor={pointerColor} // Repassa a cor configurada para o seu ponteiro
+                userColor={pointerColor}
                 members={members}
+                routes={routes}
+                temporaryDestination={temporaryDestination}
+                onLongPressMap={(coord) => handleSelectDestination(coord, 'Ponto Selecionado')}
             />
 
-
-
-
+            {/* Modal de Conflito de Rotas */}
+            <RouteDecisionModal
+                visible={modalVisible}
+                hasExistingRoute={routes.length > 0}
+                destinationName={destinationAddress}
+                onReplace={() => {
+                    if (pendingCoords) processAndSaveRoute(pendingCoords, 'replace');
+                }}
+                onNextStop={() => {
+                    if (pendingCoords) processAndSaveRoute(pendingCoords, 'nextStop');
+                }}
+                onCancel={() => {
+                    setModalVisible(false);
+                    setTemporaryDestination(null);
+                    setPendingCoords(null);
+                }}
+            />
         </View>
     );
 }
@@ -118,7 +205,7 @@ const styles = StyleSheet.create({
     },
     backButton: {
         position: 'absolute',
-        top: 50,
+        top: 110, // Posicionado abaixo da searchbar para evitar sobreposição
         left: 16,
         zIndex: 10,
         backgroundColor: 'rgba(2, 8, 16, 0.85)',
