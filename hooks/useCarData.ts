@@ -1,10 +1,9 @@
-// /hooks/useCarData.ts
+// hooks/useCarData.ts
 import { useConnection } from '@/contexts/connectionContext';
 import { useEffect, useRef, useState } from 'react';
 import { OBD_PIDS } from '../constants/obdPids';
 import { obdService } from '../services/obdService';
 
-// Atualize a interface existente
 interface CarMetrics {
     rpm: number;
     rpmMax: number;
@@ -13,32 +12,14 @@ interface CarMetrics {
     throttlePos: number;
     engineLoad: number;
     battery: number;
-    fuelPressure: number; // Novo
-    map: number;          // Novo
-    timingAdvance: number;// Novo
-    iat: number;          // Novo
-    fuelLevel: number;    // Novo
+    fuelPressure: number;
+    map: number;
+    timingAdvance: number;
+    iat: number;
+    fuelLevel: number;
     maf: number;
 }
 
-// Atualize o estado inicial dentro do hook useCarData
-const [metrics, setMetrics] = useState<CarMetrics>({
-    rpm: 0,
-    rpmMax: 8000,
-    speed: 0,
-    coolantTemp: 0,
-    throttlePos: 0,
-    engineLoad: 0,
-    battery: 0,
-    fuelPressure: 0,
-    map: 0,
-    timingAdvance: 0,
-    iat: 0,
-    fuelLevel: 0,
-    maf: 0
-});
-
-// Adicione à fila de requisições
 const POLLING_QUEUE = [
     { key: 'rpm', pidConfig: OBD_PIDS.RPM },
     { key: 'speed', pidConfig: OBD_PIDS.SPEED },
@@ -57,29 +38,27 @@ const POLLING_QUEUE = [
 export const useCarData = () => {
     const { status } = useConnection();
 
-    // Estado que será consumido pela UI
+    // ✅ Único useState, agora dentro da função
     const [metrics, setMetrics] = useState<CarMetrics>({
-        rpm: 0,            // RPM do motor
-        rpmMax: 8000,      //RPM máximo do Motor 
-        speed: 0,          // Velocidade
-        coolantTemp: 0,    // Temperatura do motor  
-        throttlePos: 0,    // Posição do acelerador
-        engineLoad: 0,     // Carga do motor
-        battery: 0,        // Bateria 
-        fuelPressure: 0,   // Pressão do combustível
-        map: 0,            // Pressão do Coletor (MAP)
-        timingAdvance: 0,  // Avanço de ignição
-        iat: 0,            // Temperatura do ar (IAT)
-        fuelLevel: 0,      // Nível do tanque
-        maf: 0             // Fluxo de ar
+        rpm: 0,
+        rpmMax: 8000,
+        speed: 0,
+        coolantTemp: 0,
+        throttlePos: 0,
+        engineLoad: 0,
+        battery: 0,
+        fuelPressure: 0,
+        map: 0,
+        timingAdvance: 0,
+        iat: 0,
+        fuelLevel: 0,
+        maf: 0,
     });
 
     const currentQueryIndex = useRef(0);
     const isPolling = useRef(false);
 
-    // O useEffect AQUI estava faltando!
     useEffect(() => {
-        // Só inicia o polling se estiver conectado
         if (status !== 'CONNECTED') {
             isPolling.current = false;
             return;
@@ -98,9 +77,9 @@ export const useCarData = () => {
                 const numericValue = currentQuery.pidConfig.parse(hexResponse);
 
                 if (numericValue !== null) {
-                    setMetrics(prev => ({
+                    setMetrics((prev) => ({
                         ...prev,
-                        [currentQuery.key]: numericValue
+                        [currentQuery.key]: numericValue,
                     }));
                 }
 
@@ -115,21 +94,17 @@ export const useCarData = () => {
                 const nextQuery = POLLING_QUEUE[currentQueryIndex.current];
                 await obdService.writeCommand(`${nextQuery.pidConfig.pid}\r`);
             } catch (error) {
-                console.error("Erro ao solicitar PID:", error);
+                console.error('Erro ao solicitar PID:', error);
             }
         };
 
-        // Inicia a escuta no serviço Bluetooth
         obdService.startListening(handleDataReceived);
-
-        // Dá o pontapé inicial na primeira pergunta
         requestNextMetric();
 
-        // Limpeza quando o componente é desmontado ou a conexão cai
         return () => {
             isPolling.current = false;
         };
-    }, [status]); // Agora o fechamento do useEffect faz sentido
+    }, [status]);
 
     return metrics;
 };
