@@ -1,3 +1,4 @@
+import { requestBlePermissions } from '@/services/ble/ble-permissions';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { LedDevice, ledService } from '../services/ble/led-service';
 import {
@@ -36,10 +37,16 @@ export const LedProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         await SettingsStorage.saveLedSettings(newSettings);
     };
 
-    const connectToLed = (customName?: string) => {
+    const connectToLed = async (customName?: string) => {
         const targetName = customName || ledSettings.name;
         if (!targetName.trim()) {
             setError('Nome do dispositivo inválido.');
+            return;
+        }
+
+        const hasPermission = await requestBlePermissions();
+        if (!hasPermission) {
+            setError('Permissões de Bluetooth negadas.');
             return;
         }
 

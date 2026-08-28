@@ -1,4 +1,6 @@
-import BleManager, { bleEmitter } from "./ble/ble-manager";
+// services/obdService.ts
+import BleManager, { bleEmitter, ensureBleManagerStarted } from "./ble/ble-manager";
+import { requestBlePermissions } from "./ble/ble-permissions";
 
 const OBD_SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
 const OBD_CHARACTERISTIC_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
@@ -13,10 +15,19 @@ export interface OBDDevice {
 class OBDService {
     private connectedDeviceId: string | null = null;
     private mockListener: ((hexData: string) => void) | null = null;
-    private scanListener: any = null;
-    private notifyListener: any = null;
+    private scanListener: ReturnType<typeof bleEmitter.addListener> | null = null;
+    private notifyListener: ReturnType<typeof bleEmitter.addListener> | null = null;
 
-    startScan(onDeviceFound: (device: OBDDevice) => void) {
+    /**
+     * Inicia o scan de dispositivos OBD via BLE.
+     * @param onDeviceFound Chamado a cada periférico encontrado.
+     * @param onError Chamado se a permissão for negada, o Bluetooth estiver
+     * desligado, ou o BleManager falhar ao iniciar — evita falhas silenciosas.
+     */
+    async startScan(
+        onDeviceFound: (device: OBDDevice) => void,
+        onError?: (error: Error) => void
+    ): Promise<void> {
         if (SIMULATION_MODE) {
             setTimeout(() => {
                 onDeviceFound({ id: 'SIM-001', name: 'OBDII_Simulador' });
@@ -24,23 +35,37 @@ class OBDService {
             return;
         }
 
-        this.scanListener?.remove();
-        this.scanListener = bleEmitter.addListener('BleManagerDiscoverPeripheral', (peripheral) => {
-            if (peripheral.name) {
-                onDeviceFound({ id: peripheral.id, name: peripheral.name });
+        try {
+            const hasPermission = await requestBlePermissions();
+            if (!hasPermission) {
+                onError?.(new Error('Permissões de Bluetooth negadas.'));
+                return;
             }
-        });
 
-        BleManager.scan({
-            serviceUUIDs: [],
-            seconds: 10,
-            allowDuplicates: true,
-        });
+            await ensureBleManagerStarted();
+
+            this.scanListener?.remove();
+            this.scanListener = bleEmitter.addListener('BleManagerDiscoverPeripheral', (peripheral) => {
+                if (peripheral.name) {
+                    onDeviceFound({ id: peripheral.id, name: peripheral.name });
+                }
+            });
+
+            await BleManager.scan({
+                serviceUUIDs: [],
+                seconds: 10,
+                allowDuplicates: true,
+            });
+        } catch (error) {
+            console.error('Erro ao iniciar scan OBD:', error);
+            onError?.(error instanceof Error ? error : new Error('Falha ao iniciar scan Bluetooth.'));
+        }
     }
 
     stopScan() {
         if (!SIMULATION_MODE) {
             this.scanListener?.remove();
+            this.scanListener = null;
             BleManager.stopScan();
         }
     }
@@ -52,6 +77,8 @@ class OBDService {
         }
 
         try {
+            await ensureBleManagerStarted();
+
             this.stopScan();
             await BleManager.connect(deviceId);
             await BleManager.retrieveServices(deviceId);
@@ -59,6 +86,7 @@ class OBDService {
             await this.initializeELM327();
             return { id: deviceId, name: 'OBDII Device' };
         } catch (error) {
+            this.connectedDeviceId = null;
             throw error;
         }
     }
@@ -119,6 +147,7 @@ class OBDService {
         if (SIMULATION_MODE) return;
         if (this.connectedDeviceId) {
             this.notifyListener?.remove();
+            this.notifyListener = null;
             await BleManager.disconnect(this.connectedDeviceId);
             this.connectedDeviceId = null;
         }

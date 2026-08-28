@@ -33,7 +33,14 @@ export const ConnectionProvider = ({ children }: { children: ReactNode }) => {
         setStatus('SCANNING');
         setScannedDevices([]);
         setErrorMessage(null);
-        obdService.startScan(handleDeviceFound);
+
+        obdService.startScan(
+            handleDeviceFound,
+            (error) => {
+                setStatus('ERROR');
+                setErrorMessage(error.message);
+            }
+        );
     };
 
     const stopScan = () => {
