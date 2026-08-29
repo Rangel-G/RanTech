@@ -1,6 +1,7 @@
 import { RealTimeMap } from "@/components/realTimeMaps";
 import { RouteDecisionModal } from "@/components/routeDecisionModal";
 import { RouteSearchBar } from "@/components/RouteSearchBar";
+import { StartRouteModal } from "@/components/startRouteModal";
 import { useGroup } from "@/contexts/group-context";
 import { useReception } from "@/hooks/useReception";
 import {
@@ -10,14 +11,17 @@ import {
 } from "@/services/firebase/group-service";
 import { UserService } from "@/services/firebase/user-service";
 import { DirectionsService } from "@/services/google/directionService";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 
@@ -25,6 +29,13 @@ export default function RealMapScreen() {
   const { data } = useReception();
   const { activeGroup, userId, userName, pointerColor, routes, saveRoute } =
     useGroup();
+
+  // Estados para controle de Navegação 3D
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [navigationScope, setNavigationScope] = useState<
+    "public" | "private" | null
+  >(null);
+  const [startModalVisible, setStartModalVisible] = useState(false);
 
   const [userLocation, setUserLocation] = useState<{
     latitude: number;
@@ -43,6 +54,48 @@ export default function RealMapScreen() {
   );
 
   const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+
+  // Filtra e ordena as rotas do escopo selecionado
+  const activeNavigationRoutes = useMemo(() => {
+    if (!navigationScope) return [];
+    return routes
+      .filter((r) =>
+        navigationScope === "private" ? r.isPrivate : !r.isPrivate,
+      )
+      .sort((a, b) => a.updatedAt - b.updatedAt);
+  }, [routes, navigationScope]);
+
+  // Encerra a navegação 3D automaticamente quando não houver mais rotas restantes no escopo
+  useEffect(() => {
+    if (isNavigating && activeNavigationRoutes.length === 0) {
+      setIsNavigating(false);
+      setNavigationScope(null);
+      Alert.alert("Chegada", "Você chegou ao seu destino final!");
+    }
+  }, [activeNavigationRoutes.length, isNavigating]);
+
+  const handleNavigationActionButton = () => {
+    if (isNavigating) {
+      setIsNavigating(false);
+      setNavigationScope(null);
+    } else {
+      if (routes.length === 0) {
+        Alert.alert(
+          "Nenhuma Rota",
+          "Crie ou selecione um destino no mapa antes de iniciar.",
+        );
+        return;
+      }
+      setStartModalVisible(true);
+    }
+  };
+
+  // Confirma a escolha do modal
+  const handleSelectScope = (scope: "public" | "private") => {
+    setNavigationScope(scope);
+    setIsNavigating(true);
+    setStartModalVisible(false);
+  };
 
   // 1. Escuta membros do grupo em tempo real
   useEffect(() => {
@@ -131,8 +184,11 @@ export default function RealMapScreen() {
     try {
       let origin: RouteCoordinate;
 
-      if (mode === "nextStop" && routes.length > 0) {
-        const lastRoute = routes[routes.length - 1];
+      // Filtra apenas as rotas do mesmo tipo (Pública ou Privada) para determinar a origem da próxima parada
+      const relevantRoutes = routes.filter((r) => !!r.isPrivate === isPrivate);
+
+      if (mode === "nextStop" && relevantRoutes.length > 0) {
+        const lastRoute = relevantRoutes[relevantRoutes.length - 1];
         origin = lastRoute.destination;
       } else {
         // Limpeza antes de substituir
@@ -209,6 +265,7 @@ export default function RealMapScreen() {
         latitude={userLocation.latitude}
         longitude={userLocation.longitude}
         heading={data.heading ?? 0}
+        isNavigating={isNavigating}
         userColor={pointerColor}
         members={members}
         routes={routes}
@@ -240,6 +297,37 @@ export default function RealMapScreen() {
           setPendingCoords(null);
         }}
       />
+
+      {/* Botão Flutuante Inferior Direito */}
+      <TouchableOpacity
+        style={[
+          styles.navActionButton,
+          isNavigating ? styles.navActionStop : styles.navActionStart,
+        ]}
+        onPress={handleNavigationActionButton}
+        activeOpacity={0.8}
+      >
+        <MaterialCommunityIcons
+          name={isNavigating ? "stop-circle-outline" : "navigation"}
+          size={24}
+          color={isNavigating ? "#ff4444" : "#000000"}
+        />
+        <Text
+          style={[
+            styles.navActionText,
+            isNavigating ? styles.navTextStop : styles.navTextStart,
+          ]}
+        >
+          {isNavigating ? "Encerrar Trajeto" : "Iniciar Rota"}
+        </Text>
+      </TouchableOpacity>
+
+      <StartRouteModal
+        visible={startModalVisible}
+        routes={routes}
+        onSelectScope={handleSelectScope}
+        onCancel={() => setStartModalVisible(false)}
+      />
     </View>
   );
 }
@@ -257,15 +345,21 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: "absolute",
-    bottom: "2%", // Posicionado abaixo da searchbar para evitar sobreposição
-    left: 16,
+    bottom: "6%",
+    left: 20,
     zIndex: 10,
     backgroundColor: "rgba(2, 8, 16, 0.85)",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 8,
     borderWidth: 1,
     borderColor: "rgba(0, 255, 255, 0.3)",
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 30,
+    gap: 8,
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.5,
   },
   backButtonText: {
     color: "#8be8ff",
@@ -277,5 +371,39 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     alignItems: "center",
     marginVertical: 20,
+  },
+  navActionButton: {
+    position: "absolute",
+    bottom: "6%",
+    right: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 30,
+    gap: 8,
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.5,
+  },
+  navActionStart: {
+    backgroundColor: "#00ffff",
+  },
+  navActionStop: {
+    backgroundColor: "#1a0505",
+    borderWidth: 1.5,
+    borderColor: "#ff4444",
+  },
+  navActionText: {
+    fontWeight: "bold",
+    fontSize: 14,
+  },
+  navTextStart: {
+    color: "#000000",
+  },
+  navTextStop: {
+    color: "#ff4444",
   },
 });

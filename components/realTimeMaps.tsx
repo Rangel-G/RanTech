@@ -1,8 +1,8 @@
 import { useRouteArrival } from "@/hooks/useRouteArrival";
 import {
-    GroupMember,
-    RouteCoordinate,
-    RouteData,
+  GroupMember,
+  RouteCoordinate,
+  RouteData,
 } from "@/services/firebase/group-service";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useEffect, useRef } from "react";
@@ -13,6 +13,7 @@ interface RealTimeMapProps {
   latitude: number;
   longitude: number;
   heading: number;
+  isNavigating?: boolean; // <-- Propriedade para ativar o modo 3D
   userColor?: string;
   members?: GroupMember[];
   routes?: RouteData[];
@@ -26,6 +27,7 @@ export function RealTimeMap({
   latitude,
   longitude,
   heading,
+  isNavigating = false,
   userColor = "#00ffff",
   members = [],
   routes = [],
@@ -45,22 +47,37 @@ export function RealTimeMap({
 
   useRouteArrival(latitude, longitude);
 
+  // Atualização da câmera em tempo real (Modo 3D vs Modo 2D)
   useEffect(() => {
     latestCoords.current = { latitude, longitude };
 
     if (isFollowing.current && mapRef.current) {
       isProgrammaticMove.current = true;
-      mapRef.current.animateToRegion(
-        {
-          latitude,
-          longitude,
-          latitudeDelta: currentZoom.current.latitudeDelta,
-          longitudeDelta: currentZoom.current.longitudeDelta,
-        },
-        500,
-      );
+
+      if (isNavigating) {
+        // MODO 3D: Câmera inclinada, zoom aproximado e apontando para a bússola/direção
+        mapRef.current.animateCamera(
+          {
+            center: { latitude, longitude },
+            pitch: 60,
+            heading: heading || 0,
+            zoom: 18,
+          },
+          { duration: 500 },
+        );
+      } else {
+        // MODO 2D: Câmera plana superior apontada para o Norte
+        mapRef.current.animateCamera(
+          {
+            center: { latitude, longitude },
+            pitch: 0,
+            heading: 0,
+          },
+          { duration: 500 },
+        );
+      }
     }
-  }, [latitude, longitude]);
+  }, [latitude, longitude, heading, isNavigating]);
 
   const handleUserTouch = () => {
     isFollowing.current = false;
@@ -102,15 +119,30 @@ export function RealTimeMap({
             isFollowing.current = true;
             isProgrammaticMove.current = true;
 
-            mapRef.current?.animateToRegion(
-              {
-                latitude: latestCoords.current.latitude,
-                longitude: latestCoords.current.longitude,
-                latitudeDelta: currentZoom.current.latitudeDelta,
-                longitudeDelta: currentZoom.current.longitudeDelta,
-              },
-              1000,
-            );
+            if (isNavigating) {
+              mapRef.current?.animateCamera(
+                {
+                  center: {
+                    latitude: latestCoords.current.latitude,
+                    longitude: latestCoords.current.longitude,
+                  },
+                  pitch: 60,
+                  heading: heading || 0,
+                  zoom: 18,
+                },
+                { duration: 1000 },
+              );
+            } else {
+              mapRef.current?.animateToRegion(
+                {
+                  latitude: latestCoords.current.latitude,
+                  longitude: latestCoords.current.longitude,
+                  latitudeDelta: currentZoom.current.latitudeDelta,
+                  longitudeDelta: currentZoom.current.longitudeDelta,
+                },
+                1000,
+              );
+            }
           }, 3000);
         }
       }}
@@ -127,7 +159,7 @@ export function RealTimeMap({
             coordinates={route.coordinates}
             strokeColor={route.isPrivate ? "#ffaa00" : route.color || "#00ffff"}
             strokeWidth={4}
-            lineDashPattern={route.isPrivate ? [10, 5] : undefined} // Tracejada se for privada
+            lineDashPattern={route.isPrivate ? [10, 5] : undefined}
           />
           {route.destination && (
             <Marker coordinate={route.destination}>
