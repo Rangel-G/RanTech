@@ -49,6 +49,19 @@ export interface RoutePayload {
   isPrivate?: boolean; // <-- NOVO
 }
 
+export interface MeetingData {
+  meetingId: string;
+  creatorId: string;
+  creatorName: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  createdAt: number;
+  expiresAt: number;
+  status: "active" | "completed" | "expired";
+  responses?: Record<string, "accepted" | "declined">;
+}
+
 // Limpa caracteres inválidos para chaves do Firebase Realtime DB
 const sanitizeGroupName = (name: string) =>
   name
@@ -243,5 +256,39 @@ export const GroupService = {
   async clearRoutes(groupKey: string): Promise<void> {
     const routesRef = ref(rtdb, `groups/${groupKey}/routes`);
     await remove(routesRef);
+  },
+
+  /**
+   * Remove apenas as rotas públicas criadas pelo usuário atual
+   */
+  async clearMyGroupRoutes(groupKey: string, userId: string): Promise<void> {
+    const routesRef = ref(rtdb, `groups/${groupKey}/routes`);
+    const snapshot = await get(routesRef);
+
+    if (snapshot.exists()) {
+      const routesData = snapshot.val();
+      const updates: Record<string, null> = {};
+
+      Object.keys(routesData).forEach((routeId) => {
+        if (routesData[routeId].creatorId === userId) {
+          updates[`groups/${groupKey}/routes/${routeId}`] = null;
+        }
+      });
+
+      if (Object.keys(updates).length > 0) {
+        await update(ref(rtdb), updates);
+      }
+    }
+  },
+
+  /**
+   * Cria um novo convite de encontro no grupo
+   */
+  async createMeeting(groupKey: string, payload: MeetingData): Promise<void> {
+    const meetingRef = ref(
+      rtdb,
+      `groups/${groupKey}/meetings/${payload.meetingId}`,
+    );
+    await set(meetingRef, payload);
   },
 };
