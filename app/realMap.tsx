@@ -1,4 +1,5 @@
 import { ClearRoutesModal } from "@/components/Modals/clearRouteModal";
+import { MeetingInviteModal } from "@/components/Modals/meetingInviteModal";
 import { RouteDecisionModal } from "@/components/Modals/routeDecisionModal";
 import { StartRouteModal } from "@/components/Modals/startRouteModal";
 import { RealTimeMap } from "@/components/realTimeMaps";
@@ -6,7 +7,6 @@ import { RouteSearchBar } from "@/components/RouteSearchBar";
 import { SpeedDialMenu } from "@/components/speedDialMenu";
 import { useGroup } from "@/contexts/group-context";
 import { useReception } from "@/hooks/useReception";
-
 import {
   GroupMember,
   GroupService,
@@ -15,10 +15,11 @@ import {
 } from "@/services/firebase/group-service";
 import { UserService } from "@/services/firebase/user-service";
 import { DirectionsService } from "@/services/google/directionService";
+import { PushService } from "@/services/pushService";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { router } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -33,7 +34,8 @@ export default function RealMapScreen() {
   const { data } = useReception();
   const { activeGroup, userId, userName, pointerColor, routes, saveRoute } =
     useGroup();
-  // Estados para controle de Navegação 3D
+
+  // --- TODOS OS HOOKS DECLARADOS NO TOPO (Ordem Fixa) ---
   const [isNavigating, setIsNavigating] = useState(false);
   const [navigationScope, setNavigationScope] = useState<
     "public" | "private" | null
@@ -44,7 +46,6 @@ export default function RealMapScreen() {
     longitude: number;
   } | null>(null);
   const [members, setMembers] = useState<GroupMember[]>([]);
-  // Estados locais de controle de fluxo de rota
   const [temporaryDestination, setTemporaryDestination] =
     useState<RouteCoordinate | null>(null);
   const [destinationAddress, setDestinationAddress] = useState<string>("");
@@ -52,9 +53,19 @@ export default function RealMapScreen() {
   const [pendingCoords, setPendingCoords] = useState<RouteCoordinate | null>(
     null,
   );
-  const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
   const [clearModalVisible, setClearModalVisible] = useState(false);
   const [isSelectingMeetingMode, setIsSelectingMeetingMode] = useState(false);
+  const [expoPushToken, setExpoPushToken] = useState<string | undefined>();
+  const [activeMeeting, setActiveMeeting] = useState<MeetingData | null>(null);
+  const [showMeetingInvite, setShowMeetingInvite] = useState(false);
+
+  const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+
+  // useRef declarado corretamente no topo junto com os outros hooks
+  const currentHeading = useRef(data.heading);
+  useEffect(() => {
+    currentHeading.current = data.heading;
+  }, [data.heading]);
 
   // Filtra e ordena as rotas do escopo selecionado
   const activeNavigationRoutes = useMemo(() => {
@@ -66,26 +77,7 @@ export default function RealMapScreen() {
       .sort((a, b) => a.updatedAt - b.updatedAt);
   }, [routes, navigationScope]);
 
-  const handleClearRoutes = async (type: "public" | "private" | "all") => {
-    try {
-      if (type === "public" || type === "all") {
-        if (activeGroup && userId) {
-          await GroupService.clearMyGroupRoutes(activeGroup, userId);
-        }
-      }
-      if (type === "private" || type === "all") {
-        if (userId) {
-          await UserService.clearPrivateRoutes(userId);
-        }
-      }
-      setClearModalVisible(false);
-    } catch (error) {
-      console.error("Erro ao limpar rotas:", error);
-      Alert.alert("Erro", "Não foi possível apagar as rotas.");
-    }
-  };
-
-  // Encerra a navegação 3D automaticamente quando não houver mais rotas restantes no escopo
+  // Encerra a navegação 3D automaticamente
   useEffect(() => {
     if (isNavigating && activeNavigationRoutes.length === 0) {
       setIsNavigating(false);
@@ -94,28 +86,32 @@ export default function RealMapScreen() {
     }
   }, [activeNavigationRoutes.length, isNavigating]);
 
-  const handleNavigationActionButton = () => {
-    if (isNavigating) {
-      setIsNavigating(false);
-      setNavigationScope(null);
-    } else {
-      if (routes.length === 0) {
-        Alert.alert(
-          "Nenhuma Rota",
-          "Crie ou selecione um destino no mapa antes de iniciar.",
-        );
-        return;
-      }
-      setStartModalVisible(true);
-    }
-  };
+  // Escuta os Encontros Ativos no Grupo
+  useEffect(() => {
+    if (!activeGroup || !userId) return;
 
-  // Confirma a escolha do modal
-  const handleSelectScope = (scope: "public" | "private") => {
-    setNavigationScope(scope);
-    setIsNavigating(true);
-    setStartModalVisible(false);
-  };
+    const unsubscribe = GroupService.subscribeToActiveMeeting(
+      activeGroup,
+      (meeting) => {
+        setActiveMeeting(meeting);
+
+        if (meeting) {
+          const isCreator = meeting.creatorId === userId;
+          const hasResponded = meeting.responses && meeting.responses[userId];
+
+          if (!isCreator && !hasResponded) {
+            setShowMeetingInvite(true);
+          } else {
+            setShowMeetingInvite(false);
+          }
+        } else {
+          setShowMeetingInvite(false);
+        }
+      },
+    );
+
+    return () => unsubscribe();
+  }, [activeGroup, userId]);
 
   // 1. Escuta membros do grupo em tempo real
   useEffect(() => {
@@ -135,13 +131,27 @@ export default function RealMapScreen() {
     return () => unsubscribe();
   }, [activeGroup, userId]);
 
-  // 2. Rastreia e transmite a posição no grupo
+  // 2. Rastreia e transmite a posição no grupo (Otimizado com última posição conhecida)
   useEffect(() => {
     let subscription: Location.LocationSubscription | null = null;
+    let localToken = expoPushToken;
 
     async function startTracking() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") return;
+
+      const lastKnown = await Location.getLastKnownPositionAsync();
+      if (lastKnown) {
+        setUserLocation({
+          latitude: lastKnown.coords.latitude,
+          longitude: lastKnown.coords.longitude,
+        });
+      }
+
+      if (!localToken) {
+        localToken = await PushService.registerForPushNotificationsAsync();
+        if (localToken) setExpoPushToken(localToken);
+      }
 
       subscription = await Location.watchPositionAsync(
         {
@@ -161,9 +171,10 @@ export default function RealMapScreen() {
             GroupService.updateLocation(activeGroup, userId, {
               latitude: coords.latitude,
               longitude: coords.longitude,
-              heading: data.heading ?? 0,
+              heading: currentHeading.current ?? 0,
               pointerColor,
               name: userName,
+              pushToken: localToken,
             });
           }
         },
@@ -175,16 +186,123 @@ export default function RealMapScreen() {
     return () => {
       if (subscription) subscription.remove();
     };
-  }, [activeGroup, userId, userName, pointerColor, data.heading]);
+  }, [activeGroup, userId, userName, pointerColor]);
 
-  // 3. Acionado quando o usuário busca um endereço ou pressiona longamente o mapa
+  // 5. Gatilho do Criador do Encontro: Monitora respostas e expiração
+  useEffect(() => {
+    if (!activeGroup || !userId || !activeMeeting) return;
+    if (activeMeeting.creatorId !== userId) return;
+
+    const evaluateMeeting = async () => {
+      const responses = activeMeeting.responses || {};
+      const hasAccepted = Object.values(responses).some(
+        (r) => r === "accepted",
+      );
+      const isExpired = Date.now() > activeMeeting.expiresAt;
+
+      if (hasAccepted) {
+        await GroupService.updateMeetingStatus(
+          activeGroup,
+          activeMeeting.meetingId,
+          "completed",
+        );
+        Alert.alert(
+          "Encontro Confirmado!",
+          "Alguém aceitou o convite. Traçando rota pública para o comboio.",
+        );
+
+        const coords: RouteCoordinate = {
+          latitude: activeMeeting.latitude,
+          longitude: activeMeeting.longitude,
+        };
+        processAndSaveRoute(
+          coords,
+          "replace",
+          false,
+          activeMeeting.address || "Ponto de Encontro",
+        );
+      } else if (isExpired) {
+        await GroupService.updateMeetingStatus(
+          activeGroup,
+          activeMeeting.meetingId,
+          "expired",
+        );
+        Alert.alert(
+          "Tempo Esgotado",
+          "Ninguém aceitou o encontro a tempo. Traçando rota particular apenas para você.",
+        );
+
+        const coords: RouteCoordinate = {
+          latitude: activeMeeting.latitude,
+          longitude: activeMeeting.longitude,
+        };
+        processAndSaveRoute(
+          coords,
+          "replace",
+          true,
+          activeMeeting.address || "Ponto de Encontro",
+        );
+      }
+    };
+
+    evaluateMeeting();
+
+    const timeRemaining = activeMeeting.expiresAt - Date.now();
+    if (timeRemaining > 0) {
+      const timeout = setTimeout(() => {
+        evaluateMeeting();
+      }, timeRemaining);
+
+      return () => clearTimeout(timeout);
+    }
+  }, [activeMeeting, activeGroup, userId]);
+
+  // --- FUNÇÕES AUXILIARES ---
+  const handleClearRoutes = async (type: "public" | "private" | "all") => {
+    try {
+      if (type === "public" || type === "all") {
+        if (activeGroup && userId) {
+          await GroupService.clearMyGroupRoutes(activeGroup, userId);
+        }
+      }
+      if (type === "private" || type === "all") {
+        if (userId) {
+          await UserService.clearPrivateRoutes(userId);
+        }
+      }
+      setClearModalVisible(false);
+    } catch (error) {
+      console.error("Erro ao limpar rotas:", error);
+      Alert.alert("Erro", "Não foi possível apagar as rotas.");
+    }
+  };
+
+  const handleNavigationActionButton = () => {
+    if (isNavigating) {
+      setIsNavigating(false);
+      setNavigationScope(null);
+    } else {
+      if (routes.length === 0) {
+        Alert.alert(
+          "Nenhuma Rota",
+          "Crie ou selecione um destino no mapa antes de iniciar.",
+        );
+        return;
+      }
+      setStartModalVisible(true);
+    }
+  };
+
+  const handleSelectScope = (scope: "public" | "private") => {
+    setNavigationScope(scope);
+    setIsNavigating(true);
+    setStartModalVisible(false);
+  };
+
   const handleSelectDestination = (
     coordinate: RouteCoordinate,
     address?: string,
   ) => {
-    // -------------------------------------------------------------
-    // SE ESTIVER NO MODO DE ESCOLHER ENCONTRO, NÃO GERA ROTA COMUM
-    // -------------------------------------------------------------
     if (isSelectingMeetingMode) {
       Alert.alert(
         "Confirmar Encontro",
@@ -204,7 +322,6 @@ export default function RealMapScreen() {
       return;
     }
 
-    // --- CÓDIGO NORMAL DE ROTAS (Mantenha o que já estava aqui) ---
     setTemporaryDestination(coordinate);
     setDestinationAddress(address || "Destino no Mapa");
     setPendingCoords(coordinate);
@@ -220,7 +337,7 @@ export default function RealMapScreen() {
     coordinate: RouteCoordinate,
     address?: string,
   ) => {
-    setIsSelectingMeetingMode(false); // Sai do modo de seleção
+    setIsSelectingMeetingMode(false);
     if (!activeGroup || !userId) return;
 
     try {
@@ -233,7 +350,7 @@ export default function RealMapScreen() {
         longitude: coordinate.longitude,
         address: address || "Ponto de Encontro Marcado",
         createdAt: Date.now(),
-        expiresAt: Date.now() + 90 * 1000, // 90 segundos a partir de agora
+        expiresAt: Date.now() + 90 * 1000,
         status: "active",
         responses: {},
       };
@@ -244,38 +361,43 @@ export default function RealMapScreen() {
         "Aguardando as respostas dos membros do grupo (1:30h).",
       );
 
-      // NOTA: A Fase 5 cuidará de transformar isso em rota automaticamente com base nas respostas e timeout!
+      const tokensToNotify = members
+        .map((m) => m.pushToken)
+        .filter((token): token is string => !!token);
+
+      if (tokensToNotify.length > 0) {
+        await PushService.sendMeetingPushNotification(
+          tokensToNotify,
+          "📍 Novo Encontro!",
+          `${userName} marcou um ponto de encontro. Toque para visualizar!`,
+        );
+      }
     } catch (error) {
       console.error("Erro ao criar encontro:", error);
       Alert.alert("Erro", "Não foi possível criar o encontro.");
     }
   };
 
-  // Processa o cálculo na Directions API e salva (Pública ou Privada)
   const processAndSaveRoute = async (
     destination: RouteCoordinate,
     mode: "replace" | "nextStop",
     isPrivate: boolean = false,
+    addressOverride?: string,
   ) => {
     if (!userLocation) return;
 
     try {
       let origin: RouteCoordinate;
-
-      // Filtra apenas as rotas do mesmo tipo (Pública ou Privada) para determinar a origem da próxima parada
       const relevantRoutes = routes.filter((r) => !!r.isPrivate === isPrivate);
 
       if (mode === "nextStop" && relevantRoutes.length > 0) {
         const lastRoute = relevantRoutes[relevantRoutes.length - 1];
         origin = lastRoute.destination;
       } else {
-        // Limpeza antes de substituir
         if (mode === "replace") {
           if (isPrivate && userId) {
-            // Limpa as rotas particulares do usuário no Firebase
             await UserService.clearPrivateRoutes(userId);
           } else if (activeGroup) {
-            // Limpa as rotas públicas do grupo no Firebase
             await GroupService.clearRoutes(activeGroup);
           }
         }
@@ -300,7 +422,7 @@ export default function RealMapScreen() {
         destination: {
           latitude: destination.latitude,
           longitude: destination.longitude,
-          address: destinationAddress,
+          address: addressOverride || destinationAddress,
         },
         coordinates: routeResult.coordinates,
         isPrivate,
@@ -317,6 +439,46 @@ export default function RealMapScreen() {
     }
   };
 
+  const handleDeclineMeeting = async () => {
+    if (activeGroup && activeMeeting && userId) {
+      setShowMeetingInvite(false);
+      await GroupService.respondToMeeting(
+        activeGroup,
+        activeMeeting.meetingId,
+        userId,
+        "declined",
+      );
+    }
+  };
+
+  const handleAcceptMeeting = async () => {
+    if (activeGroup && activeMeeting && userId) {
+      setShowMeetingInvite(false);
+      await GroupService.respondToMeeting(
+        activeGroup,
+        activeMeeting.meetingId,
+        userId,
+        "accepted",
+      );
+
+      const coords: RouteCoordinate = {
+        latitude: activeMeeting.latitude,
+        longitude: activeMeeting.longitude,
+      };
+
+      setTemporaryDestination(coords);
+      setDestinationAddress(activeMeeting.address || "Ponto de Encontro");
+      setPendingCoords(coords);
+
+      if (routes.length > 0) {
+        setModalVisible(true);
+      } else {
+        processAndSaveRoute(coords, "replace", false);
+      }
+    }
+  };
+
+  // --- RETORNO CONDICIONAL DE LOADING (Sempre APÓS todos os Hooks acima) ---
   if (!userLocation) {
     return (
       <View style={styles.loadingContainer}>
@@ -327,14 +489,12 @@ export default function RealMapScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Barra de Pesquisa Flutuante */}
       <RouteSearchBar
         onDestinationSelected={(loc, addr) =>
           handleSelectDestination(loc, addr)
         }
       />
 
-      {/* Botão de Voltar Flutuante */}
       <Pressable style={styles.backButton} onPress={() => router.back()}>
         <Text style={styles.backButtonText}>← Voltar</Text>
       </Pressable>
@@ -376,7 +536,6 @@ export default function RealMapScreen() {
         }}
       />
 
-      {/* Botão Mais Animado (Speed Dial) */}
       <SpeedDialMenu
         onMeetingPress={() => {
           setIsSelectingMeetingMode(true);
@@ -384,14 +543,19 @@ export default function RealMapScreen() {
         onClearPress={() => setClearModalVisible(true)}
       />
 
-      {/* Modal de Limpeza de Rotas */}
       <ClearRoutesModal
         visible={clearModalVisible}
         onClear={handleClearRoutes}
         onCancel={() => setClearModalVisible(false)}
       />
 
-      {/* Banner flutuante de Seleção de Encontro */}
+      <MeetingInviteModal
+        meeting={activeMeeting}
+        visible={showMeetingInvite}
+        onAccept={handleAcceptMeeting}
+        onDecline={handleDeclineMeeting}
+      />
+
       {isSelectingMeetingMode && (
         <View style={styles.meetingBanner}>
           <Text style={styles.meetingBannerText}>
@@ -407,7 +571,6 @@ export default function RealMapScreen() {
         </View>
       )}
 
-      {/* Botão Flutuante Inferior Direito */}
       <TouchableOpacity
         style={[
           styles.navActionButton,
@@ -517,7 +680,7 @@ const styles = StyleSheet.create({
   },
   meetingBanner: {
     position: "absolute",
-    top: 100, // Ajuste para ficar abaixo da SearchBar
+    top: 100,
     alignSelf: "center",
     backgroundColor: "#00ffff",
     paddingHorizontal: 16,

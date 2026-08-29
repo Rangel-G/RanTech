@@ -219,10 +219,11 @@ export function RealTimeMap({
           anchor={{ x: 0.5, y: 0.5 }}
         >
           <View style={styles.memberMarkerContainer}>
+            {/* CORREÇÃO: Fundo colorido e borda branca */}
             <View
               style={[
                 styles.markerPointer,
-                { borderColor: member.pointerColor || "#00ffff" },
+                { backgroundColor: member.pointerColor || "#00ffff" },
               ]}
             />
             <View style={styles.memberNameTag}>
@@ -239,11 +240,12 @@ const styles = StyleSheet.create({
   map: { flex: 1 },
   memberMarkerContainer: { alignItems: "center", justifyContent: "center" },
   markerPointer: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "#000",
-    borderWidth: 3,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderColor: "#ffffff",
+    borderWidth: 2,
+    elevation: 3,
   },
   memberNameTag: {
     backgroundColor: "rgba(0, 0, 0, 0.75)",

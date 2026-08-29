@@ -10,6 +10,7 @@ export interface GroupMember {
   pointerColor: string;
   updatedAt: number;
   name: string;
+  pushToken?: string;
 }
 
 export interface LocationPayload {
@@ -18,6 +19,7 @@ export interface LocationPayload {
   heading: number;
   pointerColor: string;
   name?: string;
+  pushToken?: string;
 }
 
 export interface RouteCoordinate {
@@ -36,7 +38,7 @@ export interface RouteData {
   coordinates: RouteCoordinate[];
   completedUsers: Record<string, boolean>;
   updatedAt: number;
-  isPrivate?: boolean; // <-- NOVO
+  isPrivate?: boolean;
 }
 
 export interface RoutePayload {
@@ -46,7 +48,7 @@ export interface RoutePayload {
   origin: RouteCoordinate;
   destination: RouteCoordinate & { address?: string };
   coordinates: RouteCoordinate[];
-  isPrivate?: boolean; // <-- NOVO
+  isPrivate?: boolean;
 }
 
 export interface MeetingData {
@@ -290,5 +292,65 @@ export const GroupService = {
       `groups/${groupKey}/meetings/${payload.meetingId}`,
     );
     await set(meetingRef, payload);
+  },
+
+  /**
+   * Escuta o encontro mais recente que ainda está ativo e dentro do prazo de 90s
+   */
+  subscribeToActiveMeeting(
+    groupKey: string,
+    callback: (meeting: MeetingData | null) => void,
+  ) {
+    const meetingsRef = ref(rtdb, `groups/${groupKey}/meetings`);
+    return onValue(meetingsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const meetings = snapshot.val();
+        const now = Date.now();
+
+        // Filtra os encontros ativos e não expirados
+        const activeMeetings = Object.values(meetings)
+          .filter((m: any) => m.status === "active" && m.expiresAt > now)
+          .sort((a: any, b: any) => b.createdAt - a.createdAt);
+
+        if (activeMeetings.length > 0) {
+          callback(activeMeetings[0] as MeetingData);
+        } else {
+          callback(null);
+        }
+      } else {
+        callback(null);
+      }
+    });
+  },
+
+  /**
+   * Registra a resposta do usuário (aceitou ou recusou)
+   */
+  async respondToMeeting(
+    groupKey: string,
+    meetingId: string,
+    userId: string,
+    response: "accepted" | "declined",
+  ) {
+    const responseRef = ref(
+      rtdb,
+      `groups/${groupKey}/meetings/${meetingId}/responses/${userId}`,
+    );
+    await set(responseRef, response);
+  },
+
+  /**
+   * Atualiza o status do encontro (completed ou expired)
+   */
+  async updateMeetingStatus(
+    groupKey: string,
+    meetingId: string,
+    status: "completed" | "expired",
+  ) {
+    const statusRef = ref(
+      rtdb,
+      `groups/${groupKey}/meetings/${meetingId}/status`,
+    );
+    await set(statusRef, status);
   },
 };
