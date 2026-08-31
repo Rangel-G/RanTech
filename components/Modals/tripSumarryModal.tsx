@@ -36,18 +36,6 @@ export function TripSummaryModal({ visible, data, onClose }: TripSummaryProps) {
             <Text style={styles.title}>Resumo da Viagem</Text>
           </View>
 
-          <View style={styles.destinationBox}>
-            <MaterialCommunityIcons
-              name="map-marker-radius"
-              size={20}
-              color="#ffcc00"
-            />
-            <Text style={styles.destinationText} numberOfLines={2}>
-              Destino:{" "}
-              <Text style={{ color: "#fff" }}>{data.destinationAddress}</Text>
-            </Text>
-          </View>
-
           <View style={styles.gridContainer}>
             <View style={styles.card}>
               <MaterialCommunityIcons name="map" size={24} color="#00ffff" />
@@ -105,7 +93,7 @@ const styles = StyleSheet.create({
   },
   container: {
     width: "80%",
-    height: "80%",
+    height: "110%",
     maxWidth: 380,
     backgroundColor: "#020810",
     borderRadius: 20,
@@ -138,6 +126,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: "47%",
+    height:"40%",
     backgroundColor: "rgba(0,255,255,0.03)",
     borderWidth: 1,
     borderColor: "rgba(0,255,255,0.1)",
@@ -153,6 +142,7 @@ const styles = StyleSheet.create({
   },
   cardLabel: { fontSize: 12, color: "#888" },
   closeButton: {
+    top:"-10%",
     backgroundColor: "#00ffff",
     paddingVertical: 14,
     borderRadius: 12,
