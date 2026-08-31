@@ -59,8 +59,8 @@ export function RealTimeMap({
         mapRef.current.animateCamera(
           {
             center: { latitude, longitude },
-            pitch: 60,
-            heading: heading || 0,
+            pitch: 20,
+            heading: heading,
             zoom: 18,
           },
           { duration: 500 },
