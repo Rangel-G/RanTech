@@ -17,6 +17,7 @@ import {
 } from "@/services/firebase/group-service";
 import { UserService } from "@/services/firebase/user-service";
 import { DirectionsService } from "@/services/google/directionService";
+import { LoggerService } from "@/services/loggerService";
 import { PushService } from "@/services/pushService";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
@@ -36,6 +37,16 @@ export default function RealMapScreen() {
   const { data } = useReception();
   const { activeGroup, userId, userName, pointerColor, routes, saveRoute } =
     useGroup();
+
+  // ==========================================
+  // LOG DE MONTAGEM DA TELA
+  // ==========================================
+  useEffect(() => {
+    LoggerService.log("INFO", "RealMapScreen: Componente montado.");
+    return () => {
+      LoggerService.log("INFO", "RealMapScreen: Componente desmontado.");
+    };
+  }, []);
 
   // ==========================================
   // TODOS OS HOOKS AGRUPADOS EXATAMENTE NO TOPO
@@ -103,6 +114,7 @@ export default function RealMapScreen() {
   }, [routes, navigationScope]);
 
   const handleSelectScope = (scope: "public" | "private") => {
+    LoggerService.log("INFO", `RealMapScreen: Escopo selecionado (${scope}). Iniciando navegação.`);
     setNavigationScope(scope);
     setIsNavigating(true);
     setStartModalVisible(false);
@@ -117,6 +129,7 @@ export default function RealMapScreen() {
   // Encerra a navegação 3D automaticamente
   useEffect(() => {
     if (isNavigating && activeNavigationRoutes.length === 0) {
+      LoggerService.log("INFO", "RealMapScreen: Chegada ao destino final atingida.");
       setIsNavigating(false);
       setNavigationScope(null);
       Alert.alert("Chegada", "Você chegou ao seu destino final!");
@@ -127,6 +140,7 @@ export default function RealMapScreen() {
   useEffect(() => {
     if (!activeGroup || !userId) return;
 
+    LoggerService.log("INFO", "RealMapScreen: Inscrevendo escuta de encontros ativos.", { activeGroup });
     const unsubscribe = GroupService.subscribeToActiveMeeting(
       activeGroup,
       (meeting) => {
@@ -157,6 +171,7 @@ export default function RealMapScreen() {
       return;
     }
 
+    LoggerService.log("INFO", "RealMapScreen: Inscrevendo escuta de membros do grupo.");
     const unsubscribe = GroupService.subscribeToMembers(
       activeGroup,
       (updatedMembers) => {
@@ -174,140 +189,152 @@ export default function RealMapScreen() {
     let localToken = expoPushToken;
 
     async function startTracking() {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") return;
+      try {
+        LoggerService.log("INFO", "RealMapScreen: Solicitando permissão de localização...");
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+          LoggerService.log("WARN", "RealMapScreen: Permissão de localização negada pelo usuário.");
+          return;
+        }
 
-      const lastKnown = await Location.getLastKnownPositionAsync();
-      if (lastKnown) {
-        setUserLocation({
-          latitude: lastKnown.coords.latitude,
-          longitude: lastKnown.coords.longitude,
-        });
-      }
+        const lastKnown = await Location.getLastKnownPositionAsync();
+        if (lastKnown) {
+          setUserLocation({
+            latitude: lastKnown.coords.latitude,
+            longitude: lastKnown.coords.longitude,
+          });
+        }
 
-      if (!localToken) {
-        localToken = await PushService.registerForPushNotificationsAsync();
-        if (localToken) setExpoPushToken(localToken);
-      }
+        if (!localToken) {
+          localToken = await PushService.registerForPushNotificationsAsync();
+          if (localToken) setExpoPushToken(localToken);
+        }
 
-      subscription = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.High,
-          timeInterval: 2000,
-          distanceInterval: 3,
-        },
-        async (location) => {
-          const coords = {
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-          };
-          setUserLocation(coords);
+        LoggerService.log("INFO", "RealMapScreen: Iniciando rastreamento de localização contínuo.");
+        subscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 2000,
+            distanceInterval: 3,
+          },
+          async (location) => {
+            const coords = {
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            };
+            setUserLocation(coords);
 
-          // --- CÂMERA DE NAVEGAÇÃO SUAVE ---
-          if (
-            isNavigating &&
-            location.coords.speed !== null &&
-            location.coords.speed > 1.5 &&
-            location.coords.heading !== null &&
-            location.coords.heading >= 0
-          ) {
-            currentHeading.current = location.coords.heading;
-          } else if (!isNavigating) {
-            currentHeading.current = data.heading ?? currentHeading.current;
-          }
-
-          // --- RECÁLCULO AUTOMÁTICO DE ROTA ---
-          const activeRoute =
-            activeNavigationRoutes.length > 0
-              ? activeNavigationRoutes[0]
-              : null;
-
-          if (isNavigating && activeRoute && !isRecalculating.current) {
-            let minDistance = Infinity;
-
-            for (let i = 0; i < activeRoute.coordinates.length - 1; i++) {
-              const start = activeRoute.coordinates[i];
-              const end = activeRoute.coordinates[i + 1];
-
-              try {
-                const dist = getDistanceFromLine(coords, start, end);
-                if (dist < minDistance) minDistance = dist;
-              } catch (e) {
-                continue;
-              }
+            // --- CÂMERA DE NAVEGAÇÃO SUAVE ---
+            if (
+              isNavigating &&
+              location.coords.speed !== null &&
+              location.coords.speed > 1.5 &&
+              location.coords.heading !== null &&
+              location.coords.heading >= 0
+            ) {
+              currentHeading.current = location.coords.heading;
+            } else if (!isNavigating) {
+              currentHeading.current = data.heading ?? currentHeading.current;
             }
 
-            // --- COLETA DE MÉTRICAS DA VIAGEM ---
-            if (isNavigating) {
-              // Acumula distância usando geolib (getDistance)
-              if (lastCoords.current) {
-                const distMeters = getDistance(lastCoords.current, coords);
-                if (distMeters > 2 && distMeters < 200) {
-                  // Filtra saltos bruscos de GPS
-                  accumulatedDistance.current += distMeters;
+            // --- RECÁLCULO AUTOMÁTICO DE ROTA ---
+            const activeRoute =
+              activeNavigationRoutes.length > 0
+                ? activeNavigationRoutes[0]
+                : null;
+
+            if (isNavigating && activeRoute && !isRecalculating.current) {
+              let minDistance = Infinity;
+
+              for (let i = 0; i < activeRoute.coordinates.length - 1; i++) {
+                const start = activeRoute.coordinates[i];
+                const end = activeRoute.coordinates[i + 1];
+
+                try {
+                  const dist = getDistanceFromLine(coords, start, end);
+                  if (dist < minDistance) minDistance = dist;
+                } catch (e) {
+                  continue;
                 }
               }
-              lastCoords.current = coords;
 
-              // Registra velocidades válidas (convertendo m/s para km/h)
-              if (
-                location.coords.speed !== null &&
-                location.coords.speed >= 0
-              ) {
-                const speedKmH = location.coords.speed * 3.6;
-                speedRecords.current.push(speedKmH);
+              // --- COLETA DE MÉTRICAS DA VIAGEM ---
+              if (isNavigating) {
+                if (lastCoords.current) {
+                  const distMeters = getDistance(lastCoords.current, coords);
+                  if (distMeters > 2 && distMeters < 200) {
+                    accumulatedDistance.current += distMeters;
+                  }
+                }
+                lastCoords.current = coords;
+
+                if (
+                  location.coords.speed !== null &&
+                  location.coords.speed >= 0
+                ) {
+                  const speedKmH = location.coords.speed * 3.6;
+                  speedRecords.current.push(speedKmH);
+                }
+              }
+
+              if (minDistance > 50) {
+                isRecalculating.current = true;
+                LoggerService.log("WARN", "RealMapScreen: Veículo fora da rota (> 50m). Recalculando itinerário...", { minDistance });
+
+                try {
+                  const routeResult = await DirectionsService.getRoute(
+                    coords,
+                    activeRoute.destination,
+                    apiKey,
+                  );
+
+                  const routeId =
+                    (activeRoute as any).id ||
+                    (activeRoute as any).routeId ||
+                    `rota_${Date.now()}`;
+
+                  const updatedPayload = {
+                    ...activeRoute,
+                    origin: coords,
+                    coordinates: routeResult.coordinates,
+                  };
+
+                  await saveRoute(routeId, updatedPayload, activeRoute.isPrivate);
+                  LoggerService.log("INFO", "RealMapScreen: Rota recalculada e atualizada com sucesso.");
+                } catch (error: any) {
+                  LoggerService.log("ERROR", "RealMapScreen: Erro ao tentar recalcular rota", error?.message || error);
+                  console.error("Erro no recálculo:", error);
+                } finally {
+                  isRecalculating.current = false;
+                }
               }
             }
 
-            if (minDistance > 50) {
-              isRecalculating.current = true;
-
-              try {
-                const routeResult = await DirectionsService.getRoute(
-                  coords,
-                  activeRoute.destination,
-                  apiKey,
-                );
-
-                const routeId =
-                  (activeRoute as any).id ||
-                  (activeRoute as any).routeId ||
-                  `rota_${Date.now()}`;
-
-                const updatedPayload = {
-                  ...activeRoute,
-                  origin: coords,
-                  coordinates: routeResult.coordinates,
-                };
-
-                await saveRoute(routeId, updatedPayload, activeRoute.isPrivate);
-              } catch (error) {
-                console.error("Erro no recálculo:", error);
-              } finally {
-                isRecalculating.current = false;
-              }
+            if (activeGroup && userId) {
+              GroupService.updateLocation(activeGroup, userId, {
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+                heading: currentHeading.current ?? 0,
+                pointerColor,
+                name: userName,
+                pushToken: localToken,
+                statusBadge: currentStatus.current,
+              });
             }
-          }
-
-          if (activeGroup && userId) {
-            GroupService.updateLocation(activeGroup, userId, {
-              latitude: coords.latitude,
-              longitude: coords.longitude,
-              heading: currentHeading.current ?? 0,
-              pointerColor,
-              name: userName,
-              pushToken: localToken,
-              statusBadge: currentStatus.current,
-            });
-          }
-        },
-      );
+          },
+        );
+      } catch (err: any) {
+        LoggerService.log("ERROR", "RealMapScreen: Erro crítico ao iniciar rastreamento de GPS", err?.message || err);
+      }
     }
 
     startTracking();
 
     return () => {
-      if (subscription) subscription.remove();
+      if (subscription) {
+        LoggerService.log("INFO", "RealMapScreen: Removendo assinatura de rastreamento de posição.");
+        subscription.remove();
+      }
     };
   }, [
     activeGroup,
@@ -331,6 +358,7 @@ export default function RealMapScreen() {
       const isExpired = Date.now() > activeMeeting.expiresAt;
 
       if (hasAccepted) {
+        LoggerService.log("INFO", "RealMapScreen: Convite de encontro aceito. Atualizando para concluído.");
         await GroupService.updateMeetingStatus(
           activeGroup,
           activeMeeting.meetingId,
@@ -352,6 +380,7 @@ export default function RealMapScreen() {
           activeMeeting.address || "Ponto de Encontro",
         );
       } else if (isExpired) {
+        LoggerService.log("WARN", "RealMapScreen: Tempo de encontro esgotado.");
         await GroupService.updateMeetingStatus(
           activeGroup,
           activeMeeting.meetingId,
@@ -388,11 +417,12 @@ export default function RealMapScreen() {
   }, [activeMeeting, activeGroup, userId]);
 
   // ==========================================
-  // FUNÇÕES AUXILIARES
+  // FUNÇÕES AUXILIARES COM LOGGING
   // ==========================================
   const handleUpdateStatus = async (
     status: "active" | "fuel" | "flat_tire" | "food" | "stopped",
   ) => {
+    LoggerService.log("INFO", `RealMapScreen: Alterando status do piloto para "${status}"`);
     currentStatus.current = status;
     setStatusModalVisible(false);
 
@@ -403,6 +433,7 @@ export default function RealMapScreen() {
 
   const handleClearRoutes = async (type: "public" | "private" | "all") => {
     try {
+      LoggerService.log("INFO", `RealMapScreen: Solicitando limpeza de rotas (${type})`);
       if (type === "public" || type === "all") {
         if (activeGroup && userId) {
           await GroupService.clearMyGroupRoutes(activeGroup, userId);
@@ -414,7 +445,8 @@ export default function RealMapScreen() {
         }
       }
       setClearModalVisible(false);
-    } catch (error) {
+    } catch (error: any) {
+      LoggerService.log("ERROR", "RealMapScreen: Erro ao limpar rotas", error?.message || error);
       console.error("Erro ao limpar rotas:", error);
       Alert.alert("Erro", "Não foi possível apagar as rotas.");
     }
@@ -422,7 +454,7 @@ export default function RealMapScreen() {
 
   const handleNavigationActionButton = () => {
     if (isNavigating) {
-      // 1. Calcula duração
+      LoggerService.log("INFO", "RealMapScreen: Finalizando navegação e gerando resumo.");
       const totalTimeMs = Date.now() - tripStartTime.current;
       const totalMinutes = Math.floor(totalTimeMs / 60000);
       const hours = Math.floor(totalMinutes / 60);
@@ -430,7 +462,6 @@ export default function RealMapScreen() {
       const durationFormatted =
         hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 
-      // 2. Calcula distâncias e velocidades
       const distanceKm = Number(
         (accumulatedDistance.current / 1000).toFixed(2),
       );
@@ -439,9 +470,9 @@ export default function RealMapScreen() {
       const avgSpeedKmH =
         speedRecords.current.length > 0
           ? Math.round(
-              speedRecords.current.reduce((a, b) => a + b, 0) /
-                speedRecords.current.length,
-            )
+            speedRecords.current.reduce((a, b) => a + b, 0) /
+            speedRecords.current.length,
+          )
           : 0;
 
       const finalAddress = destinationAddress || "Destino Final";
@@ -458,7 +489,6 @@ export default function RealMapScreen() {
         timestamp: Date.now(),
       };
 
-      // 3. Salva no grupo se estiver em grupo ativo
       if (activeGroup && userId) {
         GroupService.saveGroupTrip(activeGroup, tripReport);
       }
@@ -466,11 +496,11 @@ export default function RealMapScreen() {
       setTripSummaryData(tripReport);
       setSummaryModalVisible(true);
 
-      // Encerra navegação
       setIsNavigating(false);
       setNavigationScope(null);
     } else {
       if (routes.length === 0) {
+        LoggerService.log("WARN", "RealMapScreen: Tentativa de iniciar rota sem itinerários ativos.");
         Alert.alert(
           "Nenhuma Rota",
           "Crie ou selecione um destino no mapa antes de iniciar.",
@@ -485,6 +515,7 @@ export default function RealMapScreen() {
     coordinate: RouteCoordinate,
     address?: string,
   ) => {
+    LoggerService.log("INFO", "RealMapScreen: Destino selecionado no mapa", { coordinate, address });
     if (isSelectingMeetingMode) {
       Alert.alert(
         "Confirmar Encontro",
@@ -523,6 +554,7 @@ export default function RealMapScreen() {
     if (!activeGroup || !userId) return;
 
     try {
+      LoggerService.log("INFO", "RealMapScreen: Criando novo encontro de grupo.");
       const meetingId = `meeting_${Date.now()}`;
       const meetingPayload: MeetingData = {
         meetingId,
@@ -554,7 +586,8 @@ export default function RealMapScreen() {
           `${userName} marcou um ponto de encontro. Toque para visualizar!`,
         );
       }
-    } catch (error) {
+    } catch (error: any) {
+      LoggerService.log("ERROR", "RealMapScreen: Erro ao criar encontro", error?.message || error);
       console.error("Erro ao criar encontro:", error);
       Alert.alert("Erro", "Não foi possível criar o encontro.");
     }
@@ -566,9 +599,13 @@ export default function RealMapScreen() {
     isPrivate: boolean = false,
     addressOverride?: string,
   ) => {
-    if (!userLocation) return;
+    if (!userLocation) {
+      LoggerService.log("WARN", "RealMapScreen: Posição do usuário ainda não carregada para gerar rota.");
+      return;
+    }
 
     try {
+      LoggerService.log("INFO", "RealMapScreen: Solicitando traçado de rota ao Google Directions...", { mode, isPrivate });
       let origin: RouteCoordinate;
       const relevantRoutes = routes.filter((r) => !!r.isPrivate === isPrivate);
 
@@ -611,11 +648,13 @@ export default function RealMapScreen() {
       };
 
       await saveRoute(routeId, payload, isPrivate);
+      LoggerService.log("INFO", "RealMapScreen: Rota gerada e salva com sucesso.");
 
       setTemporaryDestination(null);
       setModalVisible(false);
       setPendingCoords(null);
     } catch (error: any) {
+      LoggerService.log("ERROR", "RealMapScreen: Erro ao gerar/processar rota", error?.message || error);
       console.error("Erro ao gerar rota:", error);
       alert(error.message || "Não foi possível traçar a rota.");
     }

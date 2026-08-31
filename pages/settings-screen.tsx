@@ -4,10 +4,12 @@ import { useConnection } from "@/contexts/connectionContext";
 import { useGroup } from "@/contexts/group-context";
 import { useLed } from "@/contexts/led-context";
 import { UserService } from "@/services/firebase/user-service";
+import { LoggerService } from "@/services/loggerService";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,6 +25,87 @@ import {
   ObdSettings,
   SettingsStorage,
 } from "../services/storage/settings-storage";
+
+export function LogViewerSection() {
+  const [logs, setLogs] = useState<string>("");
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const handleOpenLogs = async () => {
+    const content = await LoggerService.getLogs();
+    setLogs(content);
+    setModalVisible(true);
+  };
+
+  const handleClear = async () => {
+    await LoggerService.clearLogs();
+    setLogs("Logs limpos.");
+    Alert.alert("Sucesso", "Arquivo de logs limpo com sucesso.");
+  };
+
+  return (
+    <View style={{ marginTop: 6 }}>
+      <Pressable
+        style={[styles.actionButton, styles.connectButton]}
+        onPress={handleOpenLogs}
+      >
+        <Text style={styles.buttonText}>📋 Ver Logs de Execução</Text>
+      </Pressable>
+
+      <Modal visible={modalVisible} animationType="slide" transparent={false}>
+        <View style={{ flex: 1, backgroundColor: "#0a121e", padding: 20 }}>
+          <Text
+            style={{
+              color: "#8be8ff",
+              fontSize: 18,
+              fontWeight: "bold",
+              marginBottom: 12,
+              textTransform: "uppercase",
+            }}
+          >
+            Logs de Execução do Sistema
+          </Text>
+
+          <ScrollView
+            style={{
+              flex: 1,
+              backgroundColor: "#000",
+              padding: 12,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: "rgba(0, 255, 255, 0.2)",
+            }}
+          >
+            <Text
+              style={{
+                color: "#00ffaa",
+                fontFamily: "monospace",
+                fontSize: 11,
+              }}
+            >
+              {logs}
+            </Text>
+          </ScrollView>
+
+          <View style={{ flexDirection: "row", gap: 10, marginTop: 16 }}>
+            <Pressable
+              style={[styles.actionButton, styles.leaveButton]}
+              onPress={handleClear}
+            >
+              <Text style={styles.leaveButtonText}>🗑 Limpar Logs</Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.actionButton, styles.saveButton]}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={styles.buttonText}>Fechar</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
 
 export function SettingsScreen() {
   const {
@@ -117,7 +200,6 @@ export function SettingsScreen() {
     updateLedSettings,
     isConnected: isLedConnected,
     isScanning: isLedScanning,
-    connectedDevice,
     scannedDevices: ledScannedDevices,
     startLedScan,
     stopLedScan,
@@ -304,7 +386,7 @@ export function SettingsScreen() {
         )}
       </ExpandablePanel>
 
-      {/* Configurações do Mapa e Perfil do Piloto (Exibido apenas se houver e-mail logado) */}
+      {/* Configurações do Mapa e Perfil do Piloto */}
       {Boolean(user?.email) && (
         <ExpandablePanel
           title="Perfil e Configurações do Mapa"
@@ -477,7 +559,7 @@ export function SettingsScreen() {
                   style={[
                     styles.selectButtonText,
                     obdSettings.baudRate === rate &&
-                      styles.selectButtonTextActive,
+                    styles.selectButtonTextActive,
                   ]}
                 >
                   {rate}
@@ -497,7 +579,7 @@ export function SettingsScreen() {
                   styles.selectButton,
                   styles.protocolButton,
                   obdSettings.protocol === protocol.value &&
-                    styles.selectButtonActive,
+                  styles.selectButtonActive,
                 ]}
                 onPress={() =>
                   setObdSettings({ ...obdSettings, protocol: protocol.value })
@@ -507,7 +589,7 @@ export function SettingsScreen() {
                   style={[
                     styles.selectButtonText,
                     obdSettings.protocol === protocol.value &&
-                      styles.selectButtonTextActive,
+                    styles.selectButtonTextActive,
                   ]}
                 >
                   {protocol.label}
@@ -853,6 +935,15 @@ export function SettingsScreen() {
         </View>
       </ExpandablePanel>
 
+      {/* Logs do Sistema */}
+      <ExpandablePanel
+        title="Logs e Diagnósticos"
+        icon="📋"
+        status="Arquivo Local"
+      >
+        <LogViewerSection />
+      </ExpandablePanel>
+
       <ColorPickerModal
         visible={colorModalVisible}
         initialColor={selectedColor}
@@ -1044,15 +1135,6 @@ const styles = StyleSheet.create({
     position: "relative",
     justifyContent: "center",
     alignItems: "center",
-  },
-  nativeColorInput: {
-    position: "absolute",
-    top: -10,
-    left: -10,
-    width: 60,
-    height: 60,
-    opacity: 0,
-    cursor: "pointer",
   },
   modalOverlay: {
     flex: 1,

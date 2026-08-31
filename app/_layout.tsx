@@ -4,6 +4,7 @@ import { GroupProvider } from "@/contexts/group-context";
 import { LedProvider } from "@/contexts/led-context";
 import { TelemetryProvider } from "@/contexts/telemetryContext";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { LoggerService } from "@/services/loggerService";
 import {
   DarkTheme,
   DefaultTheme,
@@ -36,6 +37,21 @@ export const unstable_settings = {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   useKeepAwake();
+
+  useEffect(() => {
+    // Captura exceções JavaScript globais não tratadas
+    const defaultErrorHandler = ErrorUtils.getGlobalHandler();
+    ErrorUtils.setGlobalHandler((error, isFatal) => {
+      LoggerService.log('ERROR', `Crash Global (Fatal: ${isFatal})`, {
+        message: error?.message,
+        stack: error?.stack,
+      });
+
+      if (defaultErrorHandler) {
+        defaultErrorHandler(error, isFatal);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     // Ouvinte global para capturar quando o usuário clica na notificação Push
