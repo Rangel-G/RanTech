@@ -1,6 +1,6 @@
 import { MeetingData } from "@/services/firebase/group-service";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface MeetingInviteModalProps {
@@ -16,19 +16,69 @@ export function MeetingInviteModal({
   onAccept,
   onDecline,
 }: MeetingInviteModalProps) {
+  const [timeLeft, setTimeLeft] = useState(0);
+
+  // Efeito do Cronômetro
+  useEffect(() => {
+    if (!visible || !meeting) return;
+
+    const updateTimer = () => {
+      const remaining = Math.max(
+        0,
+        Math.floor((meeting.expiresAt - Date.now()) / 1000),
+      );
+      setTimeLeft(remaining);
+
+      // Recusa automaticamente se o tempo zerar
+      if (remaining === 0) {
+        onDecline();
+      }
+    };
+
+    updateTimer(); // Chama imediatamente
+    const interval = setInterval(updateTimer, 1000); // Atualiza a cada 1 segundo
+
+    return () => clearInterval(interval);
+  }, [visible, meeting]);
+
   if (!meeting) return null;
+
+  // Formatação do tempo (01:30)
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
+  const formattedTime = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 
   return (
     <Modal transparent visible={visible} animationType="slide">
       <View style={styles.overlay}>
         <View style={styles.container}>
           <View style={styles.header}>
-            <MaterialCommunityIcons
-              name="map-marker-radius"
-              size={32}
-              color="#00ffff"
-            />
-            <Text style={styles.title}>Convite de Encontro</Text>
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+            >
+              <MaterialCommunityIcons
+                name="map-marker-radius"
+                size={32}
+                color="#00ffff"
+              />
+              <Text style={styles.title}>Convite de Encontro</Text>
+            </View>
+            {/* Indicador do Cronômetro */}
+            <View style={styles.timerBadge}>
+              <MaterialCommunityIcons
+                name="timer-outline"
+                size={16}
+                color={timeLeft < 30 ? "#ff4444" : "#000"}
+              />
+              <Text
+                style={[
+                  styles.timerText,
+                  { color: timeLeft < 30 ? "#ff4444" : "#000" },
+                ]}
+              >
+                {formattedTime}
+              </Text>
+            </View>
           </View>
 
           <Text style={styles.subtitle}>
@@ -86,10 +136,20 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    justifyContent: "space-between",
     marginBottom: 12,
   },
-  title: { fontSize: 20, fontWeight: "bold", color: "#fff" },
+  title: { fontSize: 18, fontWeight: "bold", color: "#fff" },
+  timerBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#00ffff",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  timerText: { fontWeight: "bold", fontSize: 14 },
   subtitle: { fontSize: 15, color: "#aaa", marginBottom: 20, lineHeight: 22 },
   addressBox: {
     flexDirection: "row",

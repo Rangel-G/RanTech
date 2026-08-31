@@ -2,6 +2,8 @@ import { ClearRoutesModal } from "@/components/Modals/clearRouteModal";
 import { MeetingInviteModal } from "@/components/Modals/meetingInviteModal";
 import { RouteDecisionModal } from "@/components/Modals/routeDecisionModal";
 import { StartRouteModal } from "@/components/Modals/startRouteModal";
+import { StatusSelectionModal } from "@/components/Modals/statusSelectionModal";
+import { TripSummaryModal } from "@/components/Modals/tripSumarryModal";
 import { RealTimeMap } from "@/components/realTimeMaps";
 import { RouteSearchBar } from "@/components/RouteSearchBar";
 import { SpeedDialMenu } from "@/components/speedDialMenu";
@@ -19,9 +21,9 @@ import { PushService } from "@/services/pushService";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { router } from "expo-router";
+import { getDistance, getDistanceFromLine } from "geolib";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   StyleSheet,
@@ -35,16 +37,25 @@ export default function RealMapScreen() {
   const { activeGroup, userId, userName, pointerColor, routes, saveRoute } =
     useGroup();
 
-  // --- TODOS OS HOOKS DECLARADOS NO TOPO (Ordem Fixa) ---
+  // ==========================================
+  // TODOS OS HOOKS AGRUPADOS EXATAMENTE NO TOPO
+  // ==========================================
+  const isRecalculating = useRef(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [navigationScope, setNavigationScope] = useState<
     "public" | "private" | null
   >(null);
   const [startModalVisible, setStartModalVisible] = useState(false);
+
+  // Inicializado com coordenada padrão para abertura instantânea do mapa
   const [userLocation, setUserLocation] = useState<{
     latitude: number;
     longitude: number;
-  } | null>(null);
+  }>({
+    latitude: -22.7394,
+    longitude: -47.3316,
+  });
+
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [temporaryDestination, setTemporaryDestination] =
     useState<RouteCoordinate | null>(null);
@@ -58,10 +69,24 @@ export default function RealMapScreen() {
   const [expoPushToken, setExpoPushToken] = useState<string | undefined>();
   const [activeMeeting, setActiveMeeting] = useState<MeetingData | null>(null);
   const [showMeetingInvite, setShowMeetingInvite] = useState(false);
+  const [statusModalVisible, setStatusModalVisible] = useState(false);
+
+  const tripStartTime = useRef<number>(0);
+  const lastCoords = useRef<{ latitude: number; longitude: number } | null>(
+    null,
+  );
+  const accumulatedDistance = useRef<number>(0);
+  const speedRecords = useRef<number[]>([]);
+
+  const [tripSummaryData, setTripSummaryData] = useState<any | null>(null);
+  const [summaryModalVisible, setSummaryModalVisible] = useState(false);
+
+  const currentStatus = useRef<
+    "active" | "fuel" | "flat_tire" | "food" | "stopped"
+  >("active");
 
   const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
-  // useRef declarado corretamente no topo junto com os outros hooks
   const currentHeading = useRef(data.heading);
   useEffect(() => {
     currentHeading.current = data.heading;
@@ -76,6 +101,18 @@ export default function RealMapScreen() {
       )
       .sort((a, b) => a.updatedAt - b.updatedAt);
   }, [routes, navigationScope]);
+
+  const handleSelectScope = (scope: "public" | "private") => {
+    setNavigationScope(scope);
+    setIsNavigating(true);
+    setStartModalVisible(false);
+
+    // Reseta e inicia as métricas da viagem
+    tripStartTime.current = Date.now();
+    accumulatedDistance.current = 0;
+    speedRecords.current = [];
+    lastCoords.current = userLocation;
+  };
 
   // Encerra a navegação 3D automaticamente
   useEffect(() => {
@@ -131,7 +168,7 @@ export default function RealMapScreen() {
     return () => unsubscribe();
   }, [activeGroup, userId]);
 
-  // 2. Rastreia e transmite a posição no grupo (Otimizado com última posição conhecida)
+  // 2. Rastreia e transmite a posição no grupo (Com Rerouting Inteligente)
   useEffect(() => {
     let subscription: Location.LocationSubscription | null = null;
     let localToken = expoPushToken;
@@ -157,15 +194,100 @@ export default function RealMapScreen() {
         {
           accuracy: Location.Accuracy.High,
           timeInterval: 2000,
-          distanceInterval: 5,
+          distanceInterval: 3,
         },
-        (location) => {
+        async (location) => {
           const coords = {
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
           };
-
           setUserLocation(coords);
+
+          // --- CÂMERA DE NAVEGAÇÃO SUAVE ---
+          if (
+            isNavigating &&
+            location.coords.speed !== null &&
+            location.coords.speed > 1.5 &&
+            location.coords.heading !== null &&
+            location.coords.heading >= 0
+          ) {
+            currentHeading.current = location.coords.heading;
+          } else if (!isNavigating) {
+            currentHeading.current = data.heading ?? currentHeading.current;
+          }
+
+          // --- RECÁLCULO AUTOMÁTICO DE ROTA ---
+          const activeRoute =
+            activeNavigationRoutes.length > 0
+              ? activeNavigationRoutes[0]
+              : null;
+
+          if (isNavigating && activeRoute && !isRecalculating.current) {
+            let minDistance = Infinity;
+
+            for (let i = 0; i < activeRoute.coordinates.length - 1; i++) {
+              const start = activeRoute.coordinates[i];
+              const end = activeRoute.coordinates[i + 1];
+
+              try {
+                const dist = getDistanceFromLine(coords, start, end);
+                if (dist < minDistance) minDistance = dist;
+              } catch (e) {
+                continue;
+              }
+            }
+
+            // --- COLETA DE MÉTRICAS DA VIAGEM ---
+            if (isNavigating) {
+              // Acumula distância usando geolib (getDistance)
+              if (lastCoords.current) {
+                const distMeters = getDistance(lastCoords.current, coords);
+                if (distMeters > 2 && distMeters < 200) {
+                  // Filtra saltos bruscos de GPS
+                  accumulatedDistance.current += distMeters;
+                }
+              }
+              lastCoords.current = coords;
+
+              // Registra velocidades válidas (convertendo m/s para km/h)
+              if (
+                location.coords.speed !== null &&
+                location.coords.speed >= 0
+              ) {
+                const speedKmH = location.coords.speed * 3.6;
+                speedRecords.current.push(speedKmH);
+              }
+            }
+
+            if (minDistance > 50) {
+              isRecalculating.current = true;
+
+              try {
+                const routeResult = await DirectionsService.getRoute(
+                  coords,
+                  activeRoute.destination,
+                  apiKey,
+                );
+
+                const routeId =
+                  (activeRoute as any).id ||
+                  (activeRoute as any).routeId ||
+                  `rota_${Date.now()}`;
+
+                const updatedPayload = {
+                  ...activeRoute,
+                  origin: coords,
+                  coordinates: routeResult.coordinates,
+                };
+
+                await saveRoute(routeId, updatedPayload, activeRoute.isPrivate);
+              } catch (error) {
+                console.error("Erro no recálculo:", error);
+              } finally {
+                isRecalculating.current = false;
+              }
+            }
+          }
 
           if (activeGroup && userId) {
             GroupService.updateLocation(activeGroup, userId, {
@@ -175,6 +297,7 @@ export default function RealMapScreen() {
               pointerColor,
               name: userName,
               pushToken: localToken,
+              statusBadge: currentStatus.current,
             });
           }
         },
@@ -186,7 +309,14 @@ export default function RealMapScreen() {
     return () => {
       if (subscription) subscription.remove();
     };
-  }, [activeGroup, userId, userName, pointerColor]);
+  }, [
+    activeGroup,
+    userId,
+    userName,
+    pointerColor,
+    isNavigating,
+    activeNavigationRoutes,
+  ]);
 
   // 5. Gatilho do Criador do Encontro: Monitora respostas e expiração
   useEffect(() => {
@@ -257,7 +387,20 @@ export default function RealMapScreen() {
     }
   }, [activeMeeting, activeGroup, userId]);
 
-  // --- FUNÇÕES AUXILIARES ---
+  // ==========================================
+  // FUNÇÕES AUXILIARES
+  // ==========================================
+  const handleUpdateStatus = async (
+    status: "active" | "fuel" | "flat_tire" | "food" | "stopped",
+  ) => {
+    currentStatus.current = status;
+    setStatusModalVisible(false);
+
+    if (activeGroup && userId) {
+      await GroupService.updateUserStatus(activeGroup, userId, status);
+    }
+  };
+
   const handleClearRoutes = async (type: "public" | "private" | "all") => {
     try {
       if (type === "public" || type === "all") {
@@ -279,6 +422,51 @@ export default function RealMapScreen() {
 
   const handleNavigationActionButton = () => {
     if (isNavigating) {
+      // 1. Calcula duração
+      const totalTimeMs = Date.now() - tripStartTime.current;
+      const totalMinutes = Math.floor(totalTimeMs / 60000);
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      const durationFormatted =
+        hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+
+      // 2. Calcula distâncias e velocidades
+      const distanceKm = Number(
+        (accumulatedDistance.current / 1000).toFixed(2),
+      );
+      const maxSpeedKmH =
+        speedRecords.current.length > 0 ? Math.max(...speedRecords.current) : 0;
+      const avgSpeedKmH =
+        speedRecords.current.length > 0
+          ? Math.round(
+              speedRecords.current.reduce((a, b) => a + b, 0) /
+                speedRecords.current.length,
+            )
+          : 0;
+
+      const finalAddress = destinationAddress || "Destino Final";
+
+      const tripReport = {
+        tripId: `trip_${Date.now()}`,
+        userId: userId || "",
+        userName: userName || "Motorista",
+        distanceKm,
+        durationFormatted,
+        maxSpeedKmH: Math.round(maxSpeedKmH),
+        avgSpeedKmH,
+        destinationAddress: finalAddress,
+        timestamp: Date.now(),
+      };
+
+      // 3. Salva no grupo se estiver em grupo ativo
+      if (activeGroup && userId) {
+        GroupService.saveGroupTrip(activeGroup, tripReport);
+      }
+
+      setTripSummaryData(tripReport);
+      setSummaryModalVisible(true);
+
+      // Encerra navegação
       setIsNavigating(false);
       setNavigationScope(null);
     } else {
@@ -291,12 +479,6 @@ export default function RealMapScreen() {
       }
       setStartModalVisible(true);
     }
-  };
-
-  const handleSelectScope = (scope: "public" | "private") => {
-    setNavigationScope(scope);
-    setIsNavigating(true);
-    setStartModalVisible(false);
   };
 
   const handleSelectDestination = (
@@ -478,15 +660,6 @@ export default function RealMapScreen() {
     }
   };
 
-  // --- RETORNO CONDICIONAL DE LOADING (Sempre APÓS todos os Hooks acima) ---
-  if (!userLocation) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color="#34b9f6" />
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       <RouteSearchBar
@@ -541,6 +714,13 @@ export default function RealMapScreen() {
           setIsSelectingMeetingMode(true);
         }}
         onClearPress={() => setClearModalVisible(true)}
+        onStatusPress={() => setStatusModalVisible(true)}
+      />
+
+      <StatusSelectionModal
+        visible={statusModalVisible}
+        onSelectStatus={handleUpdateStatus}
+        onCancel={() => setStatusModalVisible(false)}
       />
 
       <ClearRoutesModal
@@ -554,6 +734,12 @@ export default function RealMapScreen() {
         visible={showMeetingInvite}
         onAccept={handleAcceptMeeting}
         onDecline={handleDeclineMeeting}
+      />
+
+      <TripSummaryModal
+        visible={summaryModalVisible}
+        data={tripSummaryData}
+        onClose={() => setSummaryModalVisible(false)}
       />
 
       {isSelectingMeetingMode && (

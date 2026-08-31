@@ -11,6 +11,7 @@ export interface GroupMember {
   updatedAt: number;
   name: string;
   pushToken?: string;
+  statusBadge?: "active" | "fuel" | "flat_tire" | "food" | "stopped";
 }
 
 export interface LocationPayload {
@@ -20,6 +21,7 @@ export interface LocationPayload {
   pointerColor: string;
   name?: string;
   pushToken?: string;
+  statusBadge?: "active" | "fuel" | "flat_tire" | "food" | "stopped";
 }
 
 export interface RouteCoordinate {
@@ -62,6 +64,18 @@ export interface MeetingData {
   expiresAt: number;
   status: "active" | "completed" | "expired";
   responses?: Record<string, "accepted" | "declined">;
+}
+
+export interface TripReport {
+  tripId: string;
+  userId: string;
+  userName: string;
+  distanceKm: number;
+  durationFormatted: string;
+  maxSpeedKmH: number;
+  avgSpeedKmH: number;
+  destinationAddress: string;
+  timestamp: number;
 }
 
 // Limpa caracteres inválidos para chaves do Firebase Realtime DB
@@ -352,5 +366,26 @@ export const GroupService = {
       `groups/${groupKey}/meetings/${meetingId}/status`,
     );
     await set(statusRef, status);
+  },
+
+  /**
+   * Atualiza o status visual do usuário no mapa
+   */
+  async updateUserStatus(
+    groupKey: string,
+    userId: string,
+    statusBadge: "active" | "fuel" | "flat_tire" | "food" | "stopped",
+  ) {
+    const statusRef = ref(
+      rtdb,
+      `groups/${groupKey}/members/${userId}/statusBadge`,
+    );
+    await set(statusRef, statusBadge);
+  },
+
+  // Dentro do GroupService:
+  async saveGroupTrip(groupKey: string, tripData: TripReport) {
+    const tripRef = ref(rtdb, `groups/${groupKey}/trips/${tripData.tripId}`);
+    await set(tripRef, tripData);
   },
 };

@@ -68,6 +68,7 @@ export default {
       ],
     ],
     android: {
+      useNextNotificationsApi: true,
       googleServicesFile: "./google-services.json",
       adaptiveIcon: {
         foregroundImage: "./assets/icon.png",

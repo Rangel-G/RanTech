@@ -1,21 +1,23 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useRef, useState } from "react";
 import {
-    Animated,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Animated,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 interface SpeedDialMenuProps {
   onMeetingPress: () => void;
   onClearPress: () => void;
+  onStatusPress: () => void;
 }
 
 export function SpeedDialMenu({
   onMeetingPress,
   onClearPress,
+  onStatusPress,
 }: SpeedDialMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const animation = useRef(new Animated.Value(0)).current;
@@ -30,6 +32,10 @@ export function SpeedDialMenu({
     setIsOpen(!isOpen);
   };
 
+  const translateYStatus = animation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [20, -175],
+  });
   const translateYMeeting = animation.interpolate({
     inputRange: [0, 1],
     outputRange: [20, -120],
@@ -49,6 +55,26 @@ export function SpeedDialMenu({
 
   return (
     <View style={styles.container}>
+      {/* Botão Status */}
+      <Animated.View
+        style={[
+          styles.actionWrapper,
+          { opacity, transform: [{ translateY: translateYStatus }] },
+        ]}
+      >
+        <Text style={styles.label}>Status</Text>
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: "#ffaa00" }]}
+          onPress={() => {
+            toggleMenu();
+            onStatusPress();
+          }}
+          disabled={!isOpen}
+        >
+          <MaterialCommunityIcons name="car-info" size={20} color="#000" />
+        </TouchableOpacity>
+      </Animated.View>
+
       {/* Botão Encontro */}
       <Animated.View
         style={[

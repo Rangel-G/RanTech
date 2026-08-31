@@ -156,10 +156,12 @@ export function RealTimeMap({
       {routes.map((route) => (
         <React.Fragment key={route.routeId}>
           <Polyline
+            key={route.routeId} // ou route.id
             coordinates={route.coordinates}
-            strokeColor={route.isPrivate ? "#ffaa00" : route.color || "#00ffff"}
-            strokeWidth={4}
-            lineDashPattern={route.isPrivate ? [10, 5] : undefined}
+            strokeColor={route.color || "#00ffff"}
+            strokeWidth={16} // <-- Linha super grossa e visível
+            lineCap="round" // <-- Arredonda as pontas da linha
+            lineJoin="round" // <-- Arredonda as quinas nas curvas
           />
           {route.destination && (
             <Marker coordinate={route.destination}>
@@ -207,31 +209,53 @@ export function RealTimeMap({
         </View>
       </Marker>
 
-      {members.map((member) => (
-        <Marker
-          key={member.userId}
-          coordinate={{
-            latitude: member.latitude,
-            longitude: member.longitude,
-          }}
-          flat
-          rotation={member.heading ?? 0}
-          anchor={{ x: 0.5, y: 0.5 }}
-        >
-          <View style={styles.memberMarkerContainer}>
-            {/* CORREÇÃO: Fundo colorido e borda branca */}
-            <View
-              style={[
-                styles.markerPointer,
-                { backgroundColor: member.pointerColor || "#00ffff" },
-              ]}
-            />
-            <View style={styles.memberNameTag}>
-              <Text style={styles.memberNameText}>{member.name}</Text>
+      {members.map((member) => {
+        // Define o ícone com base no status do usuário
+        let statusIcon = null;
+        if (member.statusBadge === "fuel") statusIcon = "⛽";
+        else if (member.statusBadge === "flat_tire") statusIcon = "🔧";
+        else if (member.statusBadge === "food") statusIcon = "🍔";
+        else if (member.statusBadge === "stopped") statusIcon = "🛑";
+
+        return (
+          <Marker
+            key={member.userId}
+            coordinate={{
+              latitude: member.latitude,
+              longitude: member.longitude,
+            }}
+            flat
+            rotation={member.heading ?? 0}
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            <View style={styles.memberMarkerContainer}>
+              {/* Balãozinho de Status Flutuante */}
+              {statusIcon && (
+                <View
+                  style={{
+                    backgroundColor: "rgba(0,0,0,0.7)",
+                    borderRadius: 10,
+                    padding: 2,
+                    marginBottom: -5,
+                    zIndex: 10,
+                  }}
+                >
+                  <Text style={{ fontSize: 16 }}>{statusIcon}</Text>
+                </View>
+              )}
+              <View
+                style={[
+                  styles.markerPointer,
+                  { backgroundColor: member.pointerColor || "#00ffff" },
+                ]}
+              />
+              <View style={styles.memberNameTag}>
+                <Text style={styles.memberNameText}>{member.name}</Text>
+              </View>
             </View>
-          </View>
-        </Marker>
-      ))}
+          </Marker>
+        );
+      })}
     </MapView>
   );
 }
