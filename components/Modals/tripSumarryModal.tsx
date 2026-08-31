@@ -104,7 +104,8 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   container: {
-    width: "100%",
+    width: "80%",
+    height: "80%",
     maxWidth: 380,
     backgroundColor: "#020810",
     borderRadius: 20,
