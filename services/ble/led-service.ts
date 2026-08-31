@@ -1,8 +1,8 @@
 import BleManager, { bleEmitter } from "./ble-manager";
 
 export const LED_UUIDS = {
-  SERVICE: '0000ffe0-0000-1000-8000-00805f9b34fb',
-  CHARACTERISTIC: '0000ffe1-0000-1000-8000-00805f9b34fb',
+  SERVICE: "0000ffe0-0000-1000-8000-00805f9b34fb",
+  CHARACTERISTIC: "0000ffe1-0000-1000-8000-00805f9b34fb",
 };
 
 export interface LedDevice {
@@ -18,61 +18,173 @@ export class LedService {
 
   async checkBluetoothState(): Promise<boolean> {
     const state = await BleManager.checkState();
-    return state === 'on';
+    return state === "on";
   }
 
   public isConnected(): boolean {
     return this.connectedDeviceId !== null;
   }
 
-  scanAndConnect(
-    deviceName: string,
-    onConnected: (device: LedDevice) => void,
+  // Varredura ampla para encontrar fitas LED (Triones, HappyLighting, etc.)
+  scanForDevices(
+    onDeviceFound: (device: LedDevice) => void,
     onError: (error: Error) => void,
-    timeoutMs = 8000
+    timeoutMs = 10000,
   ): void {
     const timeoutId = setTimeout(() => {
       this.scanListener?.remove();
       BleManager.stopScan();
+    }, timeoutMs);
+
+    this.scanListener?.remove();
+    this.scanListener = bleEmitter.addListener(
+      "BleManagerDiscoverPeripheral",
+      (peripheral) => {
+        if (
+          peripheral &&
+          (peripheral.name || peripheral.advertising?.localName)
+        ) {
+          const name = (
+            peripheral.name ||
+            peripheral.advertising?.localName ||
+            ""
+          ).toLowerCase();
+
+          const isLedDevice =
+            name.includes("led") ||
+            name.includes("triones") ||
+            name.includes("hf") ||
+            name.includes("sp") ||
+            name.includes("el") ||
+            name.includes("lamp") ||
+            name.includes("light") ||
+            name.includes("fita") ||
+            name.includes("ble");
+
+          if (isLedDevice) {
+            onDeviceFound({
+              id: peripheral.id,
+              name: peripheral.name || peripheral.advertising?.localName,
+            });
+          }
+        }
+      },
+    );
+
+    BleManager.scan({
+      serviceUUIDs: [],
+      seconds: Math.floor(timeoutMs / 1000),
+      allowDuplicates: false,
+    }).catch((err) => {
+      onError(err as Error);
+    });
+  }
+
+  stopScan(): void {
+    this.scanListener?.remove();
+    BleManager.stopScan();
+  }
+
+  // Conexão direta por ID único (retorna Promise<void> corretamente)
+  async connectById(
+    deviceId: string,
+    onConnected: (device: LedDevice) => void,
+    onError: (error: Error) => void,
+  ): Promise<void> {
+    this.stopScan();
+    try {
+      await BleManager.connect(deviceId);
+      await BleManager.retrieveServices(deviceId);
+
+      this.connectedDeviceId = deviceId;
+      this.lastColor = null;
+
+      this.disconnectListener?.remove();
+      this.disconnectListener = bleEmitter.addListener(
+        "BleManagerDisconnectPeripheral",
+        (data) => {
+          if (data.peripheral === this.connectedDeviceId) {
+            console.warn("Fita LED desconectou.");
+            this.connectedDeviceId = null;
+            this.lastColor = null;
+          }
+        },
+      );
+
+      onConnected({ id: deviceId });
+    } catch (err) {
+      this.connectedDeviceId = null;
+      onError(err as Error);
+    }
+  }
+
+  scanAndConnect(
+    deviceName: string,
+    onConnected: (device: LedDevice) => void,
+    onError: (error: Error) => void,
+    timeoutMs = 8000,
+  ): void {
+    if (!deviceName || deviceName.trim() === "") {
+      this.scanForDevices(
+        (device) => {
+          this.stopScan();
+          this.connectById(device.id, onConnected, onError);
+        },
+        onError,
+        timeoutMs,
+      );
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      this.scanListener?.remove();
+      BleManager.stopScan();
       if (!this.connectedDeviceId) {
-        onError(new Error('Timeout: Fita LED não encontrada.'));
+        onError(new Error("Timeout: Fita LED não encontrada."));
       }
     }, timeoutMs);
 
     this.scanListener?.remove();
-    this.scanListener = bleEmitter.addListener('BleManagerDiscoverPeripheral', async (peripheral) => {
-      if (peripheral && (peripheral.name === deviceName || peripheral.advertising?.localName === deviceName)) {
-        clearTimeout(timeoutId);
-        this.scanListener?.remove();
-        BleManager.stopScan();
+    this.scanListener = bleEmitter.addListener(
+      "BleManagerDiscoverPeripheral",
+      async (peripheral) => {
+        const peripheralName =
+          peripheral.name || peripheral.advertising?.localName || "";
+        if (
+          peripheral &&
+          (peripheralName.includes(deviceName) || peripheralName === deviceName)
+        ) {
+          clearTimeout(timeoutId);
+          this.scanListener?.remove();
+          BleManager.stopScan();
 
-        try {
-          await BleManager.connect(peripheral.id);
-          await BleManager.retrieveServices(peripheral.id);
+          try {
+            await BleManager.connect(peripheral.id);
+            await BleManager.retrieveServices(peripheral.id);
 
-          this.connectedDeviceId = peripheral.id;
-          this.lastColor = null;
+            this.connectedDeviceId = peripheral.id;
+            this.lastColor = null;
 
-          // Monitora desconexão do dispositivo
-          this.disconnectListener?.remove();
-          this.disconnectListener = bleEmitter.addListener(
-            'BleManagerDisconnectPeripheral',
-            (data) => {
-              if (data.peripheral === this.connectedDeviceId) {
-                console.warn('Fita LED desconectou.');
-                this.connectedDeviceId = null;
-                this.lastColor = null;
-              }
-            }
-          );
+            this.disconnectListener?.remove();
+            this.disconnectListener = bleEmitter.addListener(
+              "BleManagerDisconnectPeripheral",
+              (data) => {
+                if (data.peripheral === this.connectedDeviceId) {
+                  console.warn("Fita LED desconectou.");
+                  this.connectedDeviceId = null;
+                  this.lastColor = null;
+                }
+              },
+            );
 
-          onConnected({ id: peripheral.id, name: peripheral.name });
-        } catch (err) {
-          this.connectedDeviceId = null;
-          onError(err as Error);
+            onConnected({ id: peripheral.id, name: peripheral.name });
+          } catch (err) {
+            this.connectedDeviceId = null;
+            onError(err as Error);
+          }
         }
-      }
-    });
+      },
+    );
 
     BleManager.scan({
       serviceUUIDs: [],
@@ -87,15 +199,14 @@ export class LedService {
     }
 
     try {
-      // Envia os bytes diretamente como array numérico
       await BleManager.writeWithoutResponse(
         this.connectedDeviceId,
         LED_UUIDS.SERVICE,
         LED_UUIDS.CHARACTERISTIC,
-        byteArray
+        byteArray,
       );
     } catch (error) {
-      console.warn('Falha ao enviar dados para a fita LED:', error);
+      console.warn("Falha ao enviar dados para a fita LED:", error);
       this.connectedDeviceId = null;
       this.lastColor = null;
     }
@@ -116,7 +227,12 @@ export class LedService {
     await this.writeBytes(command);
   }
 
-  async setRgbColor(r: number, g: number, b: number, force = false): Promise<void> {
+  async setRgbColor(
+    r: number,
+    g: number,
+    b: number,
+    force = false,
+  ): Promise<void> {
     const red = Math.max(0, Math.min(255, Math.floor(r)));
     const green = Math.max(0, Math.min(255, Math.floor(g)));
     const blue = Math.max(0, Math.min(255, Math.floor(b)));
@@ -138,7 +254,7 @@ export class LedService {
     redlineRpm: number,
     blinkIntervalMs: number,
     normalColor: [number, number, number],
-    redlineColor: [number, number, number]
+    redlineColor: [number, number, number],
   ): Promise<void> {
     if (!this.connectedDeviceId) return;
 
@@ -148,7 +264,7 @@ export class LedService {
     }
 
     const intervalSec = Math.max(0.02, blinkIntervalMs / 1000.0);
-    const phase = Math.floor((Date.now() / 1000) / intervalSec) % 2;
+    const phase = Math.floor(Date.now() / 1000 / intervalSec) % 2;
 
     const [r, g, b] = phase === 0 ? redlineColor : [0, 0, 0];
     await this.setRgbColor(r, g, b);
@@ -160,7 +276,7 @@ export class LedService {
         this.disconnectListener?.remove();
         await BleManager.disconnect(this.connectedDeviceId);
       } catch (err) {
-        console.warn('Erro ao desconectar:', err);
+        console.warn("Erro ao desconectar:", err);
       } finally {
         this.connectedDeviceId = null;
         this.lastColor = null;

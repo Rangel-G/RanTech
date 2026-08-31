@@ -6,22 +6,22 @@ import { useLed } from "@/contexts/led-context";
 import { UserService } from "@/services/firebase/user-service";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import {
-    DEFAULT_GEAR_SETTINGS,
-    DEFAULT_OBD_SETTINGS,
-    GearSettings,
-    ObdSettings,
-    SettingsStorage,
+  DEFAULT_GEAR_SETTINGS,
+  DEFAULT_OBD_SETTINGS,
+  GearSettings,
+  ObdSettings,
+  SettingsStorage,
 } from "../services/storage/settings-storage";
 
 export function SettingsScreen() {
@@ -117,6 +117,11 @@ export function SettingsScreen() {
     updateLedSettings,
     isConnected: isLedConnected,
     isScanning: isLedScanning,
+    connectedDevice,
+    scannedDevices: ledScannedDevices,
+    startLedScan,
+    stopLedScan,
+    connectToDevice: connectLedDevice,
     connectToLed,
     disconnect: disconnectLed,
   } = useLed();
@@ -300,7 +305,7 @@ export function SettingsScreen() {
       </ExpandablePanel>
 
       {/* Configurações do Mapa e Perfil do Piloto (Exibido apenas se houver e-mail logado) */}
-      {user?.email ? (
+      {Boolean(user?.email) && (
         <ExpandablePanel
           title="Perfil e Configurações do Mapa"
           icon="🗺️"
@@ -401,7 +406,7 @@ export function SettingsScreen() {
             </View>
           )}
         </ExpandablePanel>
-      ) : null}
+      )}
 
       {/* Configuração OBD-II */}
       <ExpandablePanel
@@ -432,7 +437,7 @@ export function SettingsScreen() {
           />
         </View>
 
-        {showFtdiSelector && (
+        {Boolean(showFtdiSelector) && (
           <View style={styles.fieldContainer}>
             <Text style={styles.fieldLabel}>Adaptador FTDI Detectado</Text>
             <View style={styles.inlineFieldRow}>
@@ -530,7 +535,7 @@ export function SettingsScreen() {
             </Text>
           </Pressable>
 
-          {status === "SCANNING" && (
+          {Boolean(status === "SCANNING") && (
             <ActivityIndicator
               size="small"
               color="#00ffff"
@@ -538,13 +543,13 @@ export function SettingsScreen() {
             />
           )}
 
-          {errorMessage && (
+          {Boolean(errorMessage) && (
             <Text style={{ color: "#ff6666", fontSize: 12, marginTop: 8 }}>
               {errorMessage}
             </Text>
           )}
 
-          {scannedDevices.length > 0 && (
+          {Boolean(scannedDevices.length > 0) && (
             <View style={[styles.selectContainer, { marginTop: 10 }]}>
               {scannedDevices.map((device) => (
                 <Pressable
@@ -613,6 +618,57 @@ export function SettingsScreen() {
             placeholderTextColor="rgba(255, 255, 255, 0.3)"
             autoCapitalize="none"
           />
+        </View>
+
+        {/* BOTÃO DE BUSCAR LED E LISTA INTERATIVA */}
+        <View style={styles.fieldContainer}>
+          <Text style={styles.fieldLabel}>Varredura Bluetooth (Fitas LED)</Text>
+          <Pressable
+            style={[
+              styles.actionButton,
+              isLedScanning ? styles.connectButton : {},
+            ]}
+            onPress={() => (isLedScanning ? stopLedScan() : startLedScan())}
+          >
+            <Text style={styles.buttonText}>
+              {isLedScanning ? "⏹ Parar Busca" : "🔍 Buscar LED"}
+            </Text>
+          </Pressable>
+          {Boolean(isLedScanning) && (
+            <ActivityIndicator
+              size="small"
+              color="#00ffff"
+              style={{ marginTop: 10 }}
+            />
+          )}
+          {Boolean(ledScannedDevices.length > 0) && (
+            <View
+              style={[
+                styles.selectContainer,
+                { marginTop: 10, flexDirection: "column" },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.fieldLabel,
+                  { color: "#8be8ff", marginBottom: 6 },
+                ]}
+              >
+                Dispositivos Compatíveis Encontrados:
+              </Text>
+              {ledScannedDevices.map((device) => (
+                <Pressable
+                  key={device.id}
+                  style={styles.selectButton}
+                  onPress={() => connectLedDevice(device.id)}
+                >
+                  <Text style={styles.selectButtonText}>
+                    {device.name || "Fita LED"} ({device.id})
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
         </View>
 
         <View style={styles.twoColumnRow}>
