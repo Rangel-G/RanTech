@@ -16,7 +16,7 @@ export default {
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.rangel.rantech",
+      bundleIdentifier: "com.rantech_midnight",
       infoPlist: {
         NSBluetoothAlwaysUsageDescription:
           "O aplicativo precisa do Bluetooth para se conectar à Fita LED e ao leitor OBDII.",
@@ -83,7 +83,7 @@ export default {
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
-      package: "com.rangel.rantech",
+      package: "com.rantech_midnight",
       permissions: [
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",
