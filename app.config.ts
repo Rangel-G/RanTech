@@ -3,7 +3,7 @@ export default {
     name: "RanTech Midnight",
     slug: "rantech_midnight",
     owner: "rangelg",
-    version: "1.0.0",
+    version: "1.0.3",
     newArchEnabled: "true",
     icon: "./assets/icon.png",
     orientation: "landscape",
@@ -16,7 +16,7 @@ export default {
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.rantech_midnight",
+      bundleIdentifier: "com.rantech.midnight",
       infoPlist: {
         NSBluetoothAlwaysUsageDescription:
           "O aplicativo precisa do Bluetooth para se conectar à Fita LED e ao leitor OBDII.",
@@ -83,7 +83,7 @@ export default {
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
-      package: "com.rantech_midnight",
+      package: "com.rantech.midnight",
       permissions: [
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",
