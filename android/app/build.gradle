@@ -39,8 +39,8 @@ android {
         applicationId 'com.rantech.midnight'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
-        versionName "1.0.3"
+        versionCode 4
+        versionName "1.0.4"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
@@ -55,7 +55,7 @@ android {
         release {
             storeFile file('my-release-key.jks')
             storePassword 'Zacpower08!'
-            keyAlias 'MidnightRelease'
+            keyAlias 'midnightrelease'
             keyPassword 'Zacpower08!'
         }
     }
@@ -65,7 +65,6 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            // CORREÇÃO: Usando a chave de release correta
             signingConfig signingConfigs.release
             
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
