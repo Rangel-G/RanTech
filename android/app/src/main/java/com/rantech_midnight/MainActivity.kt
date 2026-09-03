@@ -1,4 +1,4 @@
-package com.rantech.midnight
+package com.rantech_midnight
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

@@ -1,4 +1,4 @@
-package com.rantech.midnight
+package com.rantech_midnight
 
 import android.app.Application
 import android.content.res.Configuration
