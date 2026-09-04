@@ -53,10 +53,10 @@ android {
             keyPassword 'android'
         }
         release {
-            storeFile file('my-release-key.jks')
-            storePassword 'Zacpower08!'
-            keyAlias 'midnightrelease'
-            keyPassword 'Zacpower08!'
+            storeFile file('../upload-keystore.jks')
+            storePassword System.getenv('UPLOAD_STORE_PASSWORD')
+            keyAlias 'upload'
+            keyPassword System.getenv('UPLOAD_KEY_PASSWORD')
         }
     }
     

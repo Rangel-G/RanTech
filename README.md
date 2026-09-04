@@ -25,6 +25,28 @@ In the output, you'll find options to open the app in a
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
+## Android release
+
+The Android application ID is `com.rantech_midnight`, matching the app registered in Google Play Console.
+
+Release bundles must use the replacement upload keystore:
+
+- Keystore: `android/upload-keystore.jks`
+- Alias: `upload`
+- Upload certificate SHA-1: `91:F7:66:5A:AE:A7:A0:00:58:A9:DA:86:5F:77:B1:82:7A:74:91:63`
+
+The replacement upload key becomes valid in Google Play Console on September 6, 2026 at 11:15 UTC. Until then, Google Play will reject bundles signed with this key.
+
+To verify the certificate and build the bundle:
+
+```powershell
+Set-Location android
+keytool -list -v -keystore .\upload-keystore.jks -alias upload
+./gradlew.bat bundleRelease
+```
+
+The generated bundle is `android/app/build/outputs/bundle/release/app-release.aab`. Keep `upload-keystore.jks` and its password in a secure backup. Do not commit either the keystore or its password.
+
 ## Get a fresh project
 
 When you're ready, run:
