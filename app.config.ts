@@ -90,6 +90,7 @@ export default {
         "android.permission.BLUETOOTH_CONNECT",
         "android.permission.BLUETOOTH_SCAN",
         "android.permission.ACCESS_FINE_LOCATION",
+        "com.google.android.gms.permission.AD_ID",
       ],
     },
     web: {
