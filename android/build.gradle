@@ -21,5 +21,19 @@ allprojects {
   }
 }
 
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty("android")) {
+            project.android {
+                def currentCompileSdk = compileSdkVersion
+                if (currentCompileSdk != null) {
+                    // Força o uso do SDK 36 convertendo de forma segura para string ou inteiro se necessário
+                    compileSdkVersion 36
+                }
+            }
+        }
+    }
+}
+
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"

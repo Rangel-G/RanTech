@@ -39,13 +39,13 @@ android {
         applicationId 'com.rantech_midnight'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 5
+        versionCode 8
         versionName "1.0.4"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
     
-    signingConfigs {
+   signingConfigs {
         debug {
             storeFile file('debug.keystore')
             storePassword 'android'
@@ -53,10 +53,10 @@ android {
             keyPassword 'android'
         }
         release {
-            storeFile file('../upload-keystore.jks')
-            storePassword System.getenv('UPLOAD_STORE_PASSWORD')
+            storeFile rootProject.file('upload-keystore.jks')
+            storePassword 'Zacpower08!'
             keyAlias 'upload'
-            keyPassword System.getenv('UPLOAD_KEY_PASSWORD')
+            keyPassword 'Zacpower08!'
         }
     }
     
@@ -123,6 +123,19 @@ dependencies {
         implementation("com.facebook.react:hermes-android")
     } else {
         implementation jscFlavor
+    }
+
+    
+}
+
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty("android")) {
+            project.android {
+                compileSdkVersion rootProject.ext.compileSdkVersion
+                buildToolsVersion rootProject.ext.buildToolsVersion
+            }
+        }
     }
 }
 

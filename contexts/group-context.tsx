@@ -1,25 +1,26 @@
 // contexts/group-context.tsx
 import { auth } from "@/services/firebase/firebase";
 import {
-    GroupMember,
-    GroupService,
-    RouteData,
-    RoutePayload,
+  GroupMember,
+  GroupService,
+  RouteData,
+  RoutePayload,
 } from "@/services/firebase/group-service";
 import { UserService } from "@/services/firebase/user-service";
+import { LoggerService } from "@/services/loggerService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
-    GoogleSignin,
-    isErrorWithCode,
-    isSuccessResponse,
-    statusCodes,
+  GoogleSignin,
+  isErrorWithCode,
+  isSuccessResponse,
+  statusCodes,
 } from "@react-native-google-signin/google-signin";
 import {
-    GoogleAuthProvider,
-    onAuthStateChanged,
-    signInWithCredential,
-    signOut,
-    User,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  signInWithCredential,
+  signOut,
+  User,
 } from "firebase/auth";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
@@ -162,12 +163,18 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
   const promptGoogleLogin = async () => {
     setIsAuthenticating(true);
     try {
+      await LoggerService.log('INFO', "1. Iniciando fluxo de login com o Google...");
+
       await GoogleSignin.hasPlayServices({
         showPlayServicesUpdateDialog: true,
       });
+      await LoggerService.log('INFO', "2. Google Play Services OK. Abrindo seletor de contas...");
+
       const response = await GoogleSignin.signIn();
+      await LoggerService.log('INFO', "3. Resposta recebida do Google Sign-In...");
 
       if (!isSuccessResponse(response)) {
+        await LoggerService.log('WARN', "Login do Google foi cancelado ou não bem-sucedido pela resposta.");
         return;
       }
 
@@ -175,25 +182,29 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       if (!idToken) {
         throw new Error("Google não retornou idToken.");
       }
+      await LoggerService.log('INFO', "4. ID Token extraído com sucesso. Passando para o Firebase...");
 
       const credential = GoogleAuthProvider.credential(idToken);
       await signInWithCredential(auth, credential);
+      await LoggerService.log('INFO', "5. Sucesso! Usuário autenticado no Firebase e app sincronizado.");
+
     } catch (error) {
       if (isErrorWithCode(error)) {
         switch (error.code) {
           case statusCodes.SIGN_IN_CANCELLED:
+            await LoggerService.log('INFO', "Login Google cancelado pelo usuário.");
             break;
           case statusCodes.IN_PROGRESS:
-            console.warn("Login Google já em andamento.");
+            await LoggerService.log('WARN', "Login Google já em andamento.");
             break;
           case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
-            console.warn("Google Play Services indisponível.");
+            await LoggerService.log('WARN', "Google Play Services indisponível.");
             break;
           default:
-            console.error("Erro Google Sign-In:", error.code, error.message);
+            await LoggerService.logError("Google Sign-In Code", `Código [${error.code}]: ${error.message}`);
         }
       } else {
-        console.error("Erro inesperado no login Google:", error);
+        await LoggerService.logError("Google Sign-In Inesperado", error);
       }
     } finally {
       setIsAuthenticating(false);
@@ -202,12 +213,16 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
+      await LoggerService.log('INFO', "Iniciando processo de encerramento de sessão (Logout)...");
       await GoogleSignin.signOut();
+      await LoggerService.log('INFO', "Sessão do Google Sign-In encerrada.");
     } catch (error) {
-      console.warn("Erro ao deslogar do Google Sign-In:", error);
+      await LoggerService.log('WARN', `Aviso ao deslogar do Google Sign-In: ${error}`);
     }
+
     await signOut(auth);
     setActiveGroup(null);
+    await LoggerService.log('INFO', "Logout completo executado. Usuário desconectado do Firebase.");
   };
 
   const saveMapSettings = async (color: string, name: string) => {
