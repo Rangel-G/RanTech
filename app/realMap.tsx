@@ -213,9 +213,12 @@ export default function RealMapScreen() {
         LoggerService.log("INFO", "RealMapScreen: Iniciando rastreamento de localização contínuo.");
         subscription = await Location.watchPositionAsync(
           {
-            accuracy: Location.Accuracy.High,
-            timeInterval: 2000,
-            distanceInterval: 3,
+            // Usa o modo de navegação para máxima precisão de velocidade e posicionamento
+            accuracy: Location.Accuracy.BestForNavigation,
+            // Atualiza a cada 1 segundo (ou reduza para 500ms se preferir ultra-frequência)
+            timeInterval: 1000,
+            // Atualiza a cada 1 metro de deslocamento
+            distanceInterval: 1,
           },
           async (location) => {
             const coords = {
