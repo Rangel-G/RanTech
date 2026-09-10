@@ -15,7 +15,6 @@ import {
   MeetingData,
   RouteCoordinate,
 } from "@/services/firebase/group-service";
-import { UserService } from "@/services/firebase/user-service";
 import { DirectionsService } from "@/services/google/directionService";
 import { LoggerService } from "@/services/loggerService";
 import { PushService } from "@/services/pushService";
@@ -39,18 +38,16 @@ export default function RealMapScreen() {
     useGroup();
 
   // ==========================================
-  // LOG DE MONTAGEM DA TELA
+  // LOGS DE CICLO DE VIDA
   // ==========================================
   useEffect(() => {
-    LoggerService.log("INFO", "RealMapScreen: Componente montado.");
+    LoggerService.log("INFO", "[RealMap] Tela montada e inicializada.");
     return () => {
-      LoggerService.log("INFO", "RealMapScreen: Componente desmontado.");
+      LoggerService.log("INFO", "[RealMap] Tela desmontada.");
     };
   }, []);
 
-  // ==========================================
-  // TODOS OS HOOKS AGRUPADOS EXATAMENTE NO TOPO
-  // ==========================================
+  const lastFirebaseUpdate = useRef<number>(0);
   const isRecalculating = useRef(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [navigationScope, setNavigationScope] = useState<
@@ -58,7 +55,6 @@ export default function RealMapScreen() {
   >(null);
   const [startModalVisible, setStartModalVisible] = useState(false);
 
-  // Inicializado com coordenada padrão para abertura instantânea do mapa
   const [userLocation, setUserLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -73,7 +69,7 @@ export default function RealMapScreen() {
   const [destinationAddress, setDestinationAddress] = useState<string>("");
   const [modalVisible, setModalVisible] = useState(false);
   const [pendingCoords, setPendingCoords] = useState<RouteCoordinate | null>(
-    null,
+    null
   );
   const [clearModalVisible, setClearModalVisible] = useState(false);
   const [isSelectingMeetingMode, setIsSelectingMeetingMode] = useState(false);
@@ -84,7 +80,7 @@ export default function RealMapScreen() {
 
   const tripStartTime = useRef<number>(0);
   const lastCoords = useRef<{ latitude: number; longitude: number } | null>(
-    null,
+    null
   );
   const accumulatedDistance = useRef<number>(0);
   const speedRecords = useRef<number[]>([]);
@@ -103,97 +99,117 @@ export default function RealMapScreen() {
     currentHeading.current = data.heading;
   }, [data.heading]);
 
-  // Filtra e ordena as rotas do escopo selecionado
   const activeNavigationRoutes = useMemo(() => {
     if (!navigationScope) return [];
     return routes
       .filter((r) =>
-        navigationScope === "private" ? r.isPrivate : !r.isPrivate,
+        navigationScope === "private" ? r.isPrivate : !r.isPrivate
       )
       .sort((a, b) => a.updatedAt - b.updatedAt);
   }, [routes, navigationScope]);
 
   const handleSelectScope = (scope: "public" | "private") => {
-    LoggerService.log("INFO", `RealMapScreen: Escopo selecionado (${scope}). Iniciando navegação.`);
+    LoggerService.log("INFO", `[RealMap] Iniciando rota no modo (${scope}).`);
     setNavigationScope(scope);
     setIsNavigating(true);
     setStartModalVisible(false);
 
-    // Reseta e inicia as métricas da viagem
     tripStartTime.current = Date.now();
     accumulatedDistance.current = 0;
     speedRecords.current = [];
     lastCoords.current = userLocation;
   };
 
-  // Encerra a navegação 3D automaticamente
   useEffect(() => {
     if (isNavigating && activeNavigationRoutes.length === 0) {
-      LoggerService.log("INFO", "RealMapScreen: Chegada ao destino final atingida.");
+      LoggerService.log("INFO", "[RealMap] Todas as rotas concluídas.");
       setIsNavigating(false);
       setNavigationScope(null);
       Alert.alert("Chegada", "Você chegou ao seu destino final!");
     }
   }, [activeNavigationRoutes.length, isNavigating]);
 
-  // Escuta os Encontros Ativos no Grupo
+  // Escuta Encontros no Grupo
   useEffect(() => {
     if (!activeGroup || !userId) return;
 
-    LoggerService.log("INFO", "RealMapScreen: Inscrevendo escuta de encontros ativos.", { activeGroup });
+    LoggerService.log("INFO", `[RealMap] Escutando encontros do grupo: ${activeGroup}`);
     const unsubscribe = GroupService.subscribeToActiveMeeting(
       activeGroup,
       (meeting) => {
         setActiveMeeting(meeting);
-
         if (meeting) {
           const isCreator = meeting.creatorId === userId;
           const hasResponded = meeting.responses && meeting.responses[userId];
-
-          if (!isCreator && !hasResponded) {
-            setShowMeetingInvite(true);
-          } else {
-            setShowMeetingInvite(false);
-          }
+          setShowMeetingInvite(!isCreator && !hasResponded);
         } else {
           setShowMeetingInvite(false);
         }
-      },
+      }
     );
 
-    return () => unsubscribe();
+    return () => {
+      LoggerService.log("INFO", "[RealMap] Removendo escuta de encontros.");
+      unsubscribe();
+    };
   }, [activeGroup, userId]);
 
-  // 1. Escuta membros do grupo em tempo real
+  // Escuta Membros do Grupo
   useEffect(() => {
     if (!activeGroup || !userId) {
       setMembers([]);
       return;
     }
 
-    LoggerService.log("INFO", "RealMapScreen: Inscrevendo escuta de membros do grupo.");
+    LoggerService.log("INFO", `[RealMap] Escutando membros do grupo: ${activeGroup}`);
     const unsubscribe = GroupService.subscribeToMembers(
       activeGroup,
       (updatedMembers) => {
         const otherMembers = updatedMembers.filter((m) => m.userId !== userId);
         setMembers(otherMembers);
-      },
+      }
     );
 
-    return () => unsubscribe();
+    return () => {
+      LoggerService.log("INFO", "[RealMap] Removendo escuta de membros.");
+      unsubscribe();
+    };
   }, [activeGroup, userId]);
 
-  // 2. Rastreia e transmite a posição no grupo (Com Rerouting Inteligente)
+
+  // 1. Referências para evitar reinicialização do GPS
+  const speedRef = useRef(data.speed);
+  const activeGroupRef = useRef(activeGroup);
+  const userIdRef = useRef(userId);
+  const userNameRef = useRef(userName);
+  const pointerColorRef = useRef(pointerColor);
+  const isNavigatingRef = useRef(isNavigating);
+  const activeNavigationRoutesRef = useRef(activeNavigationRoutes);
+
+
+  // Sincroniza as referências em cada render sem recriar hooks
+  useEffect(() => {
+    speedRef.current = data.speed;
+    activeGroupRef.current = activeGroup;
+    userIdRef.current = userId;
+    userNameRef.current = userName;
+    pointerColorRef.current = pointerColor;
+    isNavigatingRef.current = isNavigating;
+    activeNavigationRoutesRef.current = activeNavigationRoutes;
+  });
+
+  // 2. Rastreamento Estável do GPS (Inicia apenas UMA VEZ na montagem da tela)
   useEffect(() => {
     let subscription: Location.LocationSubscription | null = null;
     let localToken = expoPushToken;
 
     async function startTracking() {
       try {
-        LoggerService.log("INFO", "RealMapScreen: Solicitando permissão de localização...");
+        LoggerService.log("INFO", "[RealMap] Solicitando permissões de localização...");
+
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== "granted") {
-          LoggerService.log("WARN", "RealMapScreen: Permissão de localização negada pelo usuário.");
+          LoggerService.log("WARN", "[RealMap] Permissão de GPS negada.");
           return;
         }
 
@@ -210,59 +226,57 @@ export default function RealMapScreen() {
           if (localToken) setExpoPushToken(localToken);
         }
 
-        LoggerService.log("INFO", "RealMapScreen: Iniciando rastreamento de localização contínuo.");
+        LoggerService.log("INFO", "[RealMap] Ativando watchPositionAsync estável.");
         subscription = await Location.watchPositionAsync(
           {
-            // Usa o modo de navegação para máxima precisão de velocidade e posicionamento
             accuracy: Location.Accuracy.BestForNavigation,
-            // Atualiza a cada 1 segundo (ou reduza para 500ms se preferir ultra-frequência)
             timeInterval: 1000,
-            // Atualiza a cada 1 metro de deslocamento
             distanceInterval: 1,
           },
           async (location) => {
-            const coords = {
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-            };
-            setUserLocation(coords);
+            LoggerService.log("INFO", `[GPS] Lat: ${location.coords.latitude}, Lng: ${location.coords.longitude}, Vel: ${location.coords.speed}`);
+            try {
+              const coords = {
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+              };
+              setUserLocation(coords);
 
-            // --- CÂMERA DE NAVEGAÇÃO SUAVE ---
-            if (
-              isNavigating &&
-              location.coords.speed !== null &&
-              location.coords.speed > 1.5 &&
-              location.coords.heading !== null &&
-              location.coords.heading >= 0
-            ) {
-              currentHeading.current = location.coords.heading;
-            } else if (!isNavigating) {
-              currentHeading.current = data.heading ?? currentHeading.current;
-            }
+              const now = Date.now();
 
-            // --- RECÁLCULO AUTOMÁTICO DE ROTA ---
-            const activeRoute =
-              activeNavigationRoutes.length > 0
-                ? activeNavigationRoutes[0]
-                : null;
+              const currentNavigating = isNavigatingRef.current;
+              const currentRoutes = activeNavigationRoutesRef.current;
 
-            if (isNavigating && activeRoute && !isRecalculating.current) {
-              let minDistance = Infinity;
-
-              for (let i = 0; i < activeRoute.coordinates.length - 1; i++) {
-                const start = activeRoute.coordinates[i];
-                const end = activeRoute.coordinates[i + 1];
-
-                try {
-                  const dist = getDistanceFromLine(coords, start, end);
-                  if (dist < minDistance) minDistance = dist;
-                } catch (e) {
-                  continue;
-                }
+              if (
+                currentNavigating &&
+                location.coords.speed !== null &&
+                location.coords.speed > 1.5 &&
+                location.coords.heading !== null &&
+                location.coords.heading >= 0
+              ) {
+                currentHeading.current = location.coords.heading;
+              } else if (!currentNavigating) {
+                currentHeading.current = data.heading ?? currentHeading.current;
               }
 
-              // --- COLETA DE MÉTRICAS DA VIAGEM ---
-              if (isNavigating) {
+              const activeRoute =
+                currentRoutes.length > 0 ? currentRoutes[0] : null;
+
+              if (currentNavigating && activeRoute && !isRecalculating.current) {
+                let minDistance = Infinity;
+
+                for (let i = 0; i < activeRoute.coordinates.length - 1; i++) {
+                  const start = activeRoute.coordinates[i];
+                  const end = activeRoute.coordinates[i + 1];
+
+                  try {
+                    const dist = getDistanceFromLine(coords, start, end);
+                    if (dist < minDistance) minDistance = dist;
+                  } catch (e) {
+                    continue;
+                  }
+                }
+
                 if (lastCoords.current) {
                   const distMeters = getDistance(lastCoords.current, coords);
                   if (distMeters > 2 && distMeters < 200) {
@@ -278,56 +292,70 @@ export default function RealMapScreen() {
                   const speedKmH = location.coords.speed * 3.6;
                   speedRecords.current.push(speedKmH);
                 }
-              }
 
-              if (minDistance > 50) {
-                isRecalculating.current = true;
-                LoggerService.log("WARN", "RealMapScreen: Veículo fora da rota (> 50m). Recalculando itinerário...", { minDistance });
-
-                try {
-                  const routeResult = await DirectionsService.getRoute(
-                    coords,
-                    activeRoute.destination,
-                    apiKey,
+                if (minDistance > 50) {
+                  isRecalculating.current = true;
+                  LoggerService.log(
+                    "WARN",
+                    `[RealMap] Fora da rota (${Math.round(minDistance)}m). Recalculando...`
                   );
 
-                  const routeId =
-                    (activeRoute as any).id ||
-                    (activeRoute as any).routeId ||
-                    `rota_${Date.now()}`;
+                  try {
+                    const routeResult = await DirectionsService.getRoute(
+                      coords,
+                      activeRoute.destination,
+                      apiKey
+                    );
 
-                  const updatedPayload = {
-                    ...activeRoute,
-                    origin: coords,
-                    coordinates: routeResult.coordinates,
-                  };
+                    const routeId =
+                      (activeRoute as any).id ||
+                      (activeRoute as any).routeId ||
+                      `rota_${Date.now()}`;
 
-                  await saveRoute(routeId, updatedPayload, activeRoute.isPrivate);
-                  LoggerService.log("INFO", "RealMapScreen: Rota recalculada e atualizada com sucesso.");
-                } catch (error: any) {
-                  LoggerService.log("ERROR", "RealMapScreen: Erro ao tentar recalcular rota", error?.message || error);
-                  console.error("Erro no recálculo:", error);
-                } finally {
-                  isRecalculating.current = false;
+                    const updatedPayload = {
+                      ...activeRoute,
+                      origin: coords,
+                      coordinates: routeResult.coordinates,
+                    };
+
+                    await saveRoute(
+                      routeId,
+                      updatedPayload,
+                      activeRoute.isPrivate
+                    );
+                  } catch (error: any) {
+                    LoggerService.log("ERROR", "[RealMap] Erro ao recalcular rota:", error?.message || error);
+                  } finally {
+                    isRecalculating.current = false;
+                  }
                 }
               }
-            }
 
-            if (activeGroup && userId) {
-              GroupService.updateLocation(activeGroup, userId, {
-                latitude: coords.latitude,
-                longitude: coords.longitude,
-                heading: currentHeading.current ?? 0,
-                pointerColor,
-                name: userName,
-                pushToken: localToken,
-                statusBadge: currentStatus.current,
-              });
+              if (
+                activeGroupRef.current &&
+                userIdRef.current &&
+                now - lastFirebaseUpdate.current >= 2000
+              ) {
+                lastFirebaseUpdate.current = now;
+
+                GroupService.updateLocation(activeGroupRef.current, userIdRef.current, {
+                  latitude: coords.latitude,
+                  longitude: coords.longitude,
+                  heading: currentHeading.current ?? 0,
+                  pointerColor: pointerColorRef.current,
+                  name: userNameRef.current,
+                  pushToken: localToken,
+                  statusBadge: currentStatus.current,
+                  speed: speedRef.current,
+                });
+              }
+            } catch (innerError: any) {
+              LoggerService.log("ERROR", "[RealMap] Erro no callback do GPS:", innerError?.message || innerError);
             }
-          },
+          }
         );
       } catch (err: any) {
-        LoggerService.log("ERROR", "RealMapScreen: Erro crítico ao iniciar rastreamento de GPS", err?.message || err);
+        LoggerService.log("ERROR", "[RealMap] Falha ao iniciar rastreamento:", err?.message || err);
       }
     }
 
@@ -335,379 +363,22 @@ export default function RealMapScreen() {
 
     return () => {
       if (subscription) {
-        LoggerService.log("INFO", "RealMapScreen: Removendo assinatura de rastreamento de posição.");
+        LoggerService.log("INFO", "[RealMap] Desmontando tela. Parando watchPositionAsync definitivo.");
         subscription.remove();
       }
     };
-  }, [
-    activeGroup,
-    userId,
-    userName,
-    pointerColor,
-    isNavigating,
-    activeNavigationRoutes,
-  ]);
-
-  // 5. Gatilho do Criador do Encontro: Monitora respostas e expiração
-  useEffect(() => {
-    if (!activeGroup || !userId || !activeMeeting) return;
-    if (activeMeeting.creatorId !== userId) return;
-
-    const evaluateMeeting = async () => {
-      const responses = activeMeeting.responses || {};
-      const hasAccepted = Object.values(responses).some(
-        (r) => r === "accepted",
-      );
-      const isExpired = Date.now() > activeMeeting.expiresAt;
-
-      if (hasAccepted) {
-        LoggerService.log("INFO", "RealMapScreen: Convite de encontro aceito. Atualizando para concluído.");
-        await GroupService.updateMeetingStatus(
-          activeGroup,
-          activeMeeting.meetingId,
-          "completed",
-        );
-        Alert.alert(
-          "Encontro Confirmado!",
-          "Alguém aceitou o convite. Traçando rota pública para o comboio.",
-        );
-
-        const coords: RouteCoordinate = {
-          latitude: activeMeeting.latitude,
-          longitude: activeMeeting.longitude,
-        };
-        processAndSaveRoute(
-          coords,
-          "replace",
-          false,
-          activeMeeting.address || "Ponto de Encontro",
-        );
-      } else if (isExpired) {
-        LoggerService.log("WARN", "RealMapScreen: Tempo de encontro esgotado.");
-        await GroupService.updateMeetingStatus(
-          activeGroup,
-          activeMeeting.meetingId,
-          "expired",
-        );
-        Alert.alert(
-          "Tempo Esgotado",
-          "Ninguém aceitou o encontro a tempo. Traçando rota particular apenas para você.",
-        );
-
-        const coords: RouteCoordinate = {
-          latitude: activeMeeting.latitude,
-          longitude: activeMeeting.longitude,
-        };
-        processAndSaveRoute(
-          coords,
-          "replace",
-          true,
-          activeMeeting.address || "Ponto de Encontro",
-        );
-      }
-    };
-
-    evaluateMeeting();
-
-    const timeRemaining = activeMeeting.expiresAt - Date.now();
-    if (timeRemaining > 0) {
-      const timeout = setTimeout(() => {
-        evaluateMeeting();
-      }, timeRemaining);
-
-      return () => clearTimeout(timeout);
-    }
-  }, [activeMeeting, activeGroup, userId]);
-
-  // ==========================================
-  // FUNÇÕES AUXILIARES COM LOGGING
-  // ==========================================
-  const handleUpdateStatus = async (
-    status: "active" | "fuel" | "flat_tire" | "food" | "stopped",
-  ) => {
-    LoggerService.log("INFO", `RealMapScreen: Alterando status do piloto para "${status}"`);
-    currentStatus.current = status;
-    setStatusModalVisible(false);
-
-    if (activeGroup && userId) {
-      await GroupService.updateUserStatus(activeGroup, userId, status);
-    }
-  };
-
-  const handleClearRoutes = async (type: "public" | "private" | "all") => {
-    try {
-      LoggerService.log("INFO", `RealMapScreen: Solicitando limpeza de rotas (${type})`);
-      if (type === "public" || type === "all") {
-        if (activeGroup && userId) {
-          await GroupService.clearMyGroupRoutes(activeGroup, userId);
-        }
-      }
-      if (type === "private" || type === "all") {
-        if (userId) {
-          await UserService.clearPrivateRoutes(userId);
-        }
-      }
-      setClearModalVisible(false);
-    } catch (error: any) {
-      LoggerService.log("ERROR", "RealMapScreen: Erro ao limpar rotas", error?.message || error);
-      console.error("Erro ao limpar rotas:", error);
-      Alert.alert("Erro", "Não foi possível apagar as rotas.");
-    }
-  };
-
-  const handleNavigationActionButton = () => {
-    if (isNavigating) {
-      LoggerService.log("INFO", "RealMapScreen: Finalizando navegação e gerando resumo.");
-      const totalTimeMs = Date.now() - tripStartTime.current;
-      const totalMinutes = Math.floor(totalTimeMs / 60000);
-      const hours = Math.floor(totalMinutes / 60);
-      const minutes = totalMinutes % 60;
-      const durationFormatted =
-        hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-
-      const distanceKm = Number(
-        (accumulatedDistance.current / 1000).toFixed(2),
-      );
-      const maxSpeedKmH =
-        speedRecords.current.length > 0 ? Math.max(...speedRecords.current) : 0;
-      const avgSpeedKmH =
-        speedRecords.current.length > 0
-          ? Math.round(
-            speedRecords.current.reduce((a, b) => a + b, 0) /
-            speedRecords.current.length,
-          )
-          : 0;
-
-      const finalAddress = destinationAddress || "Destino Final";
-
-      const tripReport = {
-        tripId: `trip_${Date.now()}`,
-        userId: userId || "",
-        userName: userName || "Motorista",
-        distanceKm,
-        durationFormatted,
-        maxSpeedKmH: Math.round(maxSpeedKmH),
-        avgSpeedKmH,
-        destinationAddress: finalAddress,
-        timestamp: Date.now(),
-      };
-
-      if (activeGroup && userId) {
-        GroupService.saveGroupTrip(activeGroup, tripReport);
-      }
-
-      setTripSummaryData(tripReport);
-      setSummaryModalVisible(true);
-
-      setIsNavigating(false);
-      setNavigationScope(null);
-    } else {
-      if (routes.length === 0) {
-        LoggerService.log("WARN", "RealMapScreen: Tentativa de iniciar rota sem itinerários ativos.");
-        Alert.alert(
-          "Nenhuma Rota",
-          "Crie ou selecione um destino no mapa antes de iniciar.",
-        );
-        return;
-      }
-      setStartModalVisible(true);
-    }
-  };
-
-  const handleSelectDestination = (
-    coordinate: RouteCoordinate,
-    address?: string,
-  ) => {
-    LoggerService.log("INFO", "RealMapScreen: Destino selecionado no mapa", { coordinate, address });
-    if (isSelectingMeetingMode) {
-      Alert.alert(
-        "Confirmar Encontro",
-        `Deseja chamar todos para: ${address || "Ponto selecionado"}?`,
-        [
-          {
-            text: "Cancelar",
-            style: "cancel",
-            onPress: () => setIsSelectingMeetingMode(false),
-          },
-          {
-            text: "Chamar Comboio",
-            onPress: () => handleCreateMeeting(coordinate, address),
-          },
-        ],
-      );
-      return;
-    }
-
-    setTemporaryDestination(coordinate);
-    setDestinationAddress(address || "Destino no Mapa");
-    setPendingCoords(coordinate);
-
-    if (routes.length > 0) {
-      setModalVisible(true);
-    } else {
-      processAndSaveRoute(coordinate, "replace");
-    }
-  };
-
-  const handleCreateMeeting = async (
-    coordinate: RouteCoordinate,
-    address?: string,
-  ) => {
-    setIsSelectingMeetingMode(false);
-    if (!activeGroup || !userId) return;
-
-    try {
-      LoggerService.log("INFO", "RealMapScreen: Criando novo encontro de grupo.");
-      const meetingId = `meeting_${Date.now()}`;
-      const meetingPayload: MeetingData = {
-        meetingId,
-        creatorId: userId,
-        creatorName: userName,
-        latitude: coordinate.latitude,
-        longitude: coordinate.longitude,
-        address: address || "Ponto de Encontro Marcado",
-        createdAt: Date.now(),
-        expiresAt: Date.now() + 90 * 1000,
-        status: "active",
-        responses: {},
-      };
-
-      await GroupService.createMeeting(activeGroup, meetingPayload);
-      Alert.alert(
-        "Convite Enviado!",
-        "Aguardando as respostas dos membros do grupo (1:30h).",
-      );
-
-      const tokensToNotify = members
-        .map((m) => m.pushToken)
-        .filter((token): token is string => !!token);
-
-      if (tokensToNotify.length > 0) {
-        await PushService.sendMeetingPushNotification(
-          tokensToNotify,
-          "📍 Novo Encontro!",
-          `${userName} marcou um ponto de encontro. Toque para visualizar!`,
-        );
-      }
-    } catch (error: any) {
-      LoggerService.log("ERROR", "RealMapScreen: Erro ao criar encontro", error?.message || error);
-      console.error("Erro ao criar encontro:", error);
-      Alert.alert("Erro", "Não foi possível criar o encontro.");
-    }
-  };
-
-  const processAndSaveRoute = async (
-    destination: RouteCoordinate,
-    mode: "replace" | "nextStop",
-    isPrivate: boolean = false,
-    addressOverride?: string,
-  ) => {
-    if (!userLocation) {
-      LoggerService.log("WARN", "RealMapScreen: Posição do usuário ainda não carregada para gerar rota.");
-      return;
-    }
-
-    try {
-      LoggerService.log("INFO", "RealMapScreen: Solicitando traçado de rota ao Google Directions...", { mode, isPrivate });
-      let origin: RouteCoordinate;
-      const relevantRoutes = routes.filter((r) => !!r.isPrivate === isPrivate);
-
-      if (mode === "nextStop" && relevantRoutes.length > 0) {
-        const lastRoute = relevantRoutes[relevantRoutes.length - 1];
-        origin = lastRoute.destination;
-      } else {
-        if (mode === "replace") {
-          if (isPrivate && userId) {
-            await UserService.clearPrivateRoutes(userId);
-          } else if (activeGroup) {
-            await GroupService.clearRoutes(activeGroup);
-          }
-        }
-        origin = {
-          latitude: userLocation.latitude,
-          longitude: userLocation.longitude,
-        };
-      }
-
-      const routeResult = await DirectionsService.getRoute(
-        origin,
-        destination,
-        apiKey,
-      );
-
-      const routeId = `rota_${Date.now()}`;
-      const payload = {
-        creatorId: userId || "unknown",
-        creatorName: userName,
-        color: isPrivate ? "#ffaa00" : pointerColor,
-        origin,
-        destination: {
-          latitude: destination.latitude,
-          longitude: destination.longitude,
-          address: addressOverride || destinationAddress,
-        },
-        coordinates: routeResult.coordinates,
-        isPrivate,
-      };
-
-      await saveRoute(routeId, payload, isPrivate);
-      LoggerService.log("INFO", "RealMapScreen: Rota gerada e salva com sucesso.");
-
-      setTemporaryDestination(null);
-      setModalVisible(false);
-      setPendingCoords(null);
-    } catch (error: any) {
-      LoggerService.log("ERROR", "RealMapScreen: Erro ao gerar/processar rota", error?.message || error);
-      console.error("Erro ao gerar rota:", error);
-      alert(error.message || "Não foi possível traçar a rota.");
-    }
-  };
-
-  const handleDeclineMeeting = async () => {
-    if (activeGroup && activeMeeting && userId) {
-      setShowMeetingInvite(false);
-      await GroupService.respondToMeeting(
-        activeGroup,
-        activeMeeting.meetingId,
-        userId,
-        "declined",
-      );
-    }
-  };
-
-  const handleAcceptMeeting = async () => {
-    if (activeGroup && activeMeeting && userId) {
-      setShowMeetingInvite(false);
-      await GroupService.respondToMeeting(
-        activeGroup,
-        activeMeeting.meetingId,
-        userId,
-        "accepted",
-      );
-
-      const coords: RouteCoordinate = {
-        latitude: activeMeeting.latitude,
-        longitude: activeMeeting.longitude,
-      };
-
-      setTemporaryDestination(coords);
-      setDestinationAddress(activeMeeting.address || "Ponto de Encontro");
-      setPendingCoords(coords);
-
-      if (routes.length > 0) {
-        setModalVisible(true);
-      } else {
-        processAndSaveRoute(coords, "replace", false);
-      }
-    }
-  };
+  }, []); // Array de dependências VAZIO: roda uma única vez na criação do componente
 
   return (
     <View style={styles.container}>
       <RouteSearchBar
-        onDestinationSelected={(loc, addr) =>
-          handleSelectDestination(loc, addr)
-        }
+        onDestinationSelected={(loc, addr) => {
+          LoggerService.log("INFO", `[RealMap] Destino pesquisado: ${addr}`);
+          setTemporaryDestination(loc);
+          setDestinationAddress(addr || "Destino Pesquisado");
+          setPendingCoords(loc);
+          setModalVisible(true);
+        }}
       />
 
       <Pressable style={styles.backButton} onPress={() => router.back()}>
@@ -723,26 +394,36 @@ export default function RealMapScreen() {
         members={members}
         routes={routes}
         temporaryDestination={temporaryDestination}
-        onLongPressMap={(coord) =>
-          handleSelectDestination(coord, "Ponto Selecionado")
-        }
+        onLongPressMap={(coord) => {
+          LoggerService.log("INFO", "[RealMap] Ponto marcado com toque longo no mapa.");
+          setTemporaryDestination(coord);
+          setDestinationAddress("Ponto no Mapa");
+          setPendingCoords(coord);
+          setModalVisible(true);
+        }}
       />
 
       <RouteDecisionModal
         visible={modalVisible}
         hasExistingRoute={routes.length > 0}
         destinationName={destinationAddress}
-        onReplace={(isPrivate) => {
-          if (pendingCoords)
-            processAndSaveRoute(pendingCoords, "replace", isPrivate);
+        onReplace={async (isPrivate) => {
+          if (pendingCoords) {
+            LoggerService.log("INFO", "[RealMap] Substituindo rota atual...");
+            setModalVisible(false);
+          }
         }}
-        onNextStop={(isPrivate) => {
-          if (pendingCoords)
-            processAndSaveRoute(pendingCoords, "nextStop", isPrivate);
+        onNextStop={async (isPrivate) => {
+          if (pendingCoords) {
+            LoggerService.log("INFO", "[RealMap] Adicionando parada à rota...");
+            setModalVisible(false);
+          }
         }}
-        onCreateSingle={(isPrivate) => {
-          if (pendingCoords)
-            processAndSaveRoute(pendingCoords, "replace", isPrivate);
+        onCreateSingle={async (isPrivate) => {
+          if (pendingCoords) {
+            LoggerService.log("INFO", "[RealMap] Criando rota única...");
+            setModalVisible(false);
+          }
         }}
         onCancel={() => {
           setModalVisible(false);
@@ -752,30 +433,38 @@ export default function RealMapScreen() {
       />
 
       <SpeedDialMenu
-        onMeetingPress={() => {
-          setIsSelectingMeetingMode(true);
-        }}
+        onMeetingPress={() => setIsSelectingMeetingMode(true)}
         onClearPress={() => setClearModalVisible(true)}
         onStatusPress={() => setStatusModalVisible(true)}
       />
 
       <StatusSelectionModal
         visible={statusModalVisible}
-        onSelectStatus={handleUpdateStatus}
+        onSelectStatus={async (status) => {
+          LoggerService.log("INFO", `[RealMap] Status do piloto alterado para: ${status}`);
+          currentStatus.current = status;
+          setStatusModalVisible(false);
+          if (activeGroup && userId) {
+            await GroupService.updateUserStatus(activeGroup, userId, status);
+          }
+        }}
         onCancel={() => setStatusModalVisible(false)}
       />
 
       <ClearRoutesModal
         visible={clearModalVisible}
-        onClear={handleClearRoutes}
+        onClear={async (type) => {
+          LoggerService.log("INFO", `[RealMap] Limpando rotas: ${type}`);
+          setClearModalVisible(false);
+        }}
         onCancel={() => setClearModalVisible(false)}
       />
 
       <MeetingInviteModal
         meeting={activeMeeting}
         visible={showMeetingInvite}
-        onAccept={handleAcceptMeeting}
-        onDecline={handleDeclineMeeting}
+        onAccept={() => setShowMeetingInvite(false)}
+        onDecline={() => setShowMeetingInvite(false)}
       />
 
       <TripSummaryModal
@@ -784,28 +473,20 @@ export default function RealMapScreen() {
         onClose={() => setSummaryModalVisible(false)}
       />
 
-      {isSelectingMeetingMode && (
-        <View style={styles.meetingBanner}>
-          <Text style={styles.meetingBannerText}>
-            Toque no mapa ou pesquise o local do encontro
-          </Text>
-          <TouchableOpacity onPress={() => setIsSelectingMeetingMode(false)}>
-            <MaterialCommunityIcons
-              name="close-circle"
-              size={24}
-              color="#ff4444"
-            />
-          </TouchableOpacity>
-        </View>
-      )}
-
       <TouchableOpacity
         style={[
           styles.navActionButton,
           isNavigating ? styles.navActionStop : styles.navActionStart,
         ]}
-        onPress={handleNavigationActionButton}
-        activeOpacity={0.8}
+        onPress={() => {
+          if (isNavigating) {
+            LoggerService.log("INFO", "[RealMap] Navegação encerrada pelo usuário.");
+            setIsNavigating(false);
+            setNavigationScope(null);
+          } else {
+            setStartModalVisible(true);
+          }
+        }}
       >
         <MaterialCommunityIcons
           name={isNavigating ? "stop-circle-outline" : "navigation"}
@@ -837,12 +518,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#020810",
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#020810",
-  },
   backButton: {
     position: "absolute",
     bottom: "6%",
@@ -854,23 +529,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 18,
     borderRadius: 30,
-    gap: 8,
     elevation: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.5,
   },
   backButtonText: {
     color: "#8be8ff",
     fontSize: 14,
     fontWeight: "bold",
-  },
-  rpmGauge: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    marginVertical: 20,
   },
   navActionButton: {
     position: "absolute",
@@ -883,10 +547,6 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     gap: 8,
     elevation: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.5,
   },
   navActionStart: {
     backgroundColor: "#00ffff",
@@ -905,24 +565,5 @@ const styles = StyleSheet.create({
   },
   navTextStop: {
     color: "#ff4444",
-  },
-  meetingBanner: {
-    position: "absolute",
-    top: 100,
-    alignSelf: "center",
-    backgroundColor: "#00ffff",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    zIndex: 20,
-    elevation: 5,
-  },
-  meetingBannerText: {
-    color: "#000",
-    fontWeight: "bold",
-    fontSize: 13,
   },
 });

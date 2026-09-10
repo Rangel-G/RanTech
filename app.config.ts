@@ -84,6 +84,8 @@ export default {
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: "com.rantech_midnight",
+      largeHeap: true,
+      launchMode: "singleTask",
       permissions: [
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",

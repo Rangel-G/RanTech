@@ -1,10 +1,7 @@
-// hooks/useCarData.ts
 import { useConnection } from '@/contexts/connectionContext';
-import { useEffect, useRef, useState } from 'react';
-import { OBD_PIDS } from '../constants/obdPids';
-import { obdService } from '../services/obdService';
+import { useReception } from '@/contexts/telemetryContext';
 
-interface CarMetrics {
+export interface CarMetrics {
     rpm: number;
     rpmMax: number;
     speed: number;
@@ -20,91 +17,29 @@ interface CarMetrics {
     maf: number;
 }
 
-const POLLING_QUEUE = [
-    { key: 'rpm', pidConfig: OBD_PIDS.RPM },
-    { key: 'speed', pidConfig: OBD_PIDS.SPEED },
-    { key: 'coolantTemp', pidConfig: OBD_PIDS.COOLANT_TEMP },
-    { key: 'throttlePos', pidConfig: OBD_PIDS.THROTTLE_POS },
-    { key: 'engineLoad', pidConfig: OBD_PIDS.ENGINE_LOAD },
-    { key: 'battery', pidConfig: OBD_PIDS.BATTERY },
-    { key: 'fuelPressure', pidConfig: OBD_PIDS.FUEL_PRESSURE },
-    { key: 'map', pidConfig: OBD_PIDS.MAP },
-    { key: 'timingAdvance', pidConfig: OBD_PIDS.TIMING_ADVANCE },
-    { key: 'iat', pidConfig: OBD_PIDS.IAT },
-    { key: 'fuelLevel', pidConfig: OBD_PIDS.FUEL_LEVEL },
-    { key: 'maf', pidConfig: OBD_PIDS.MAF },
-];
-
-export const useCarData = () => {
+export const useCarData = (): CarMetrics => {
+    const { data } = useReception();
     const { status } = useConnection();
 
-    // ✅ Único useState, agora dentro da função
-    const [metrics, setMetrics] = useState<CarMetrics>({
-        rpm: 0,
+    const isObdConnected = status === 'CONNECTED';
+    const rawData = data as any;
+
+    return {
+        // Velocidade ativa pelo GPS (funciona sempre)
+        speed: rawData.speed ?? 0,
         rpmMax: 8000,
-        speed: 0,
-        coolantTemp: 0,
-        throttlePos: 0,
-        engineLoad: 0,
-        battery: 0,
-        fuelPressure: 0,
-        map: 0,
-        timingAdvance: 0,
-        iat: 0,
-        fuelLevel: 0,
-        maf: 0,
-    });
 
-    const currentQueryIndex = useRef(0);
-    const isPolling = useRef(false);
-
-    useEffect(() => {
-        if (status !== 'CONNECTED') {
-            isPolling.current = false;
-            return;
-        }
-
-        isPolling.current = true;
-
-        const handleDataReceived = (hexResponse: string) => {
-            if (!isPolling.current) return;
-
-            const currentQuery = POLLING_QUEUE[currentQueryIndex.current];
-            const isAtCommand = currentQuery.pidConfig.pid.startsWith('AT');
-            const expectedResponsePrefix = isAtCommand ? '' : `41 ${currentQuery.pidConfig.pid.substring(2)}`;
-
-            if (isAtCommand || hexResponse.includes(expectedResponsePrefix)) {
-                const numericValue = currentQuery.pidConfig.parse(hexResponse);
-
-                if (numericValue !== null) {
-                    setMetrics((prev) => ({
-                        ...prev,
-                        [currentQuery.key]: numericValue,
-                    }));
-                }
-
-                currentQueryIndex.current = (currentQueryIndex.current + 1) % POLLING_QUEUE.length;
-                requestNextMetric();
-            }
-        };
-
-        const requestNextMetric = async () => {
-            if (!isPolling.current) return;
-            try {
-                const nextQuery = POLLING_QUEUE[currentQueryIndex.current];
-                await obdService.writeCommand(`${nextQuery.pidConfig.pid}\r`);
-            } catch (error) {
-                console.error('Erro ao solicitar PID:', error);
-            }
-        };
-
-        obdService.startListening(handleDataReceived);
-        requestNextMetric();
-
-        return () => {
-            isPolling.current = false;
-        };
-    }, [status]);
-
-    return metrics;
+        // Sensores do motor: leem o OBD2 se conectado, caso contrário retornam 0
+        rpm: isObdConnected ? (rawData.rpm ?? 0) : 0,
+        coolantTemp: isObdConnected ? (rawData.ect ?? rawData.coolantTemp ?? 0) : 0,
+        throttlePos: isObdConnected ? (rawData.tps ?? rawData.throttlePos ?? 0) : 0,
+        engineLoad: isObdConnected ? (rawData.load ?? rawData.engineLoad ?? 0) : 0,
+        battery: isObdConnected ? (rawData.battery ?? 0) : 0,
+        fuelPressure: isObdConnected ? (rawData.fuelPressure ?? 0) : 0,
+        map: isObdConnected ? (rawData.map ?? 0) : 0,
+        timingAdvance: isObdConnected ? (rawData.timingAdvance ?? 0) : 0,
+        iat: isObdConnected ? (rawData.iat ?? 0) : 0,
+        fuelLevel: isObdConnected ? (rawData.fuel ?? rawData.fuelLevel ?? 0) : 0,
+        maf: isObdConnected ? (rawData.maf ?? 0) : 0,
+    };
 };

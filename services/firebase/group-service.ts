@@ -12,6 +12,7 @@ export interface GroupMember {
   name: string;
   pushToken?: string;
   statusBadge?: "active" | "fuel" | "flat_tire" | "food" | "stopped";
+  speed?: number; // <-- Velocidade em km/h transmitida no comboio
 }
 
 export interface LocationPayload {
@@ -22,6 +23,7 @@ export interface LocationPayload {
   name?: string;
   pushToken?: string;
   statusBadge?: "active" | "fuel" | "flat_tire" | "food" | "stopped";
+  speed?: number; // <-- Velocidade em km/h para o payload do Firebase
 }
 
 export interface RouteCoordinate {
@@ -129,7 +131,7 @@ export const GroupService = {
   },
 
   /**
-   * Envia/Atualiza a localização do usuário no grupo
+   * Envia/Atualiza a localização e velocidade do usuário no grupo
    */
   async updateLocation(
     groupKey: string,
@@ -383,7 +385,9 @@ export const GroupService = {
     await set(statusRef, statusBadge);
   },
 
-  // Dentro do GroupService:
+  /**
+   * Salva o relatório final da viagem no grupo
+   */
   async saveGroupTrip(groupKey: string, tripData: TripReport) {
     const tripRef = ref(rtdb, `groups/${groupKey}/trips/${tripData.tripId}`);
     await set(tripRef, tripData);

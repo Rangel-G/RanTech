@@ -1,5 +1,7 @@
-import { GEAR_OPTIONS } from '@/constants/gear-options';
-import { ENGINE_MAX_RPM, INITIAL_TELEMETRY, ReceptionData } from '@/constants/telemetry-data';
+import { INITIAL_TELEMETRY, ReceptionData } from '@/constants/telemetry-data';
+import { useConnection } from '@/contexts/connectionContext'; // <-- Importe o useConnection
+import { obdService } from '@/services/obdService';
+import * as Location from 'expo-location';
 import React, { createContext, useCallback, useEffect, useState } from 'react';
 
 export interface TelemetryContextProps {
@@ -10,59 +12,78 @@ export interface TelemetryContextProps {
 
 export const TelemetryContext = createContext<TelemetryContextProps | undefined>(undefined);
 
-// Coordenadas iniciais padrão (ex: São Paulo)
-const DEFAULT_LAT = -23.55052;
-const DEFAULT_LNG = -46.633308;
-
-function tick(prev: ReceptionData): ReceptionData {
-    const rawRpm = prev.rpm + Math.random() * 400 - 100;
-    const rpm = Math.round(Math.max(0, Math.min(ENGINE_MAX_RPM, rawRpm)));
-
-    const speed = Math.max(0, prev.speed + Math.random() * 20 - 5);
-
-    // --- Simulação de GPS ---
-    const currentLat = prev.latitude ?? DEFAULT_LAT;
-    const currentLng = prev.longitude ?? DEFAULT_LNG;
-    const deltaLat = (speed > 0 ? 0.00003 : 0) + (Math.random() * 0.00001 - 0.000005);
-    const deltaLng = (speed > 0 ? 0.00003 : 0) + (Math.random() * 0.00001 - 0.000005);
-
-    const latitude = currentLat + deltaLat;
-    const longitude = currentLng + deltaLng;
-    const heading = (prev.heading ?? 45) + (Math.random() * 4 - 2);
-
-    // --- Simulação de N2O ---
-    // Oscila o nível de nitro entre 0 e 100 para testar a animação subindo e descendo
-    const currentN2o = prev.n2o ?? 100;
-    const n2o = Math.round(Math.max(0, Math.min(100, currentN2o + Math.random() * 10 - 5)));
-
-    return {
-        ...prev,
-        rpm,
-        rpmMax: Math.max(prev.rpmMax, rpm),
-        speed,
-        gear: GEAR_OPTIONS[Math.floor(Math.random() * GEAR_OPTIONS.length)],
-        ect: Math.round(Math.max(20, Math.min(120, prev.ect + Math.random() * 4 - 2))),
-        ectMax: Math.max(prev.ectMax, prev.ect),
-        map: Math.max(0, Math.min(2, prev.map + Math.random() * 0.2 - 0.1)),
-        turbo: Math.max(0, Math.min(2, prev.turbo + Math.random() * 0.2 - 0.1)),
-        battery: 12.5 + Math.random() * 2,
-        power: Math.round(Math.max(0, Math.min(100, prev.power + Math.random() * 30 - 15))),
-        wheelSpin: Math.abs(rpm - speed * 70) > 1500 ? 'PATINANDO' : 'ESTÁVEL',
-        latitude,
-        longitude,
-        heading,
-        n2o,
-        n2oMax: 100,
-    };
-}
-
 export function TelemetryProvider({ children }: { children: React.ReactNode }) {
     const [data, setData] = useState<ReceptionData>(INITIAL_TELEMETRY);
+    const { status } = useConnection(); // <-- Obtém o status da conexão
 
+    // 1. Leitura de PIDs do OBD (Executa apenas quando CONECTADO)
     useEffect(() => {
-        const id = setInterval(() => setData((prev) => tick(prev)), 500);
-        return () => clearInterval(id);
-    }, []);
+        let failCount = 0;
+
+        if (status === 'CONNECTED') {
+            obdService.startPolling((key, value) => {
+                failCount = 0; // Reseta falhas ao receber dado válido
+                setData((prev) => {
+                    const updated = { ...prev };
+                    if (key === 'RPM') updated.rpm = Math.round(value);
+                    if (key === 'SPEED') updated.speed = Math.round(value);
+                    if (key === 'COOLANT_TEMP') updated.ect = Math.round(value);
+                    if (key === 'MAP') updated.map = Number(value.toFixed(2));
+                    if (key === 'BATTERY') updated.battery = Number(value.toFixed(1));
+                    return updated;
+                });
+            });
+        } else {
+            obdService.stopPolling();
+        }
+
+        return () => {
+            obdService.stopPolling();
+        };
+    }, [status]);
+
+    // 2. Rastreamento GPS do Celular (Fallback de velocidade quando DESCONECTADO)
+    useEffect(() => {
+        let locationSubscription: Location.LocationSubscription | null = null;
+
+        async function startGpsTracking() {
+            try {
+                const { status: locStatus } = await Location.requestForegroundPermissionsAsync();
+                if (locStatus !== 'granted') return;
+
+                locationSubscription = await Location.watchPositionAsync(
+                    {
+                        accuracy: Location.Accuracy.BestForNavigation,
+                        timeInterval: 1000,
+                        distanceInterval: 1,
+                    },
+                    (location) => {
+                        const rawSpeedMs = location.coords.speed;
+                        const gpsSpeedKmH = rawSpeedMs !== null && rawSpeedMs >= 0 ? Math.round(rawSpeedMs * 3.6) : 0;
+
+                        setData((prev) => ({
+                            ...prev,
+                            // Atualiza a velocidade pelo GPS APENAS se o OBD estiver desconectado
+                            speed: status === 'CONNECTED' ? prev.speed : gpsSpeedKmH,
+                            latitude: location.coords.latitude,
+                            longitude: location.coords.longitude,
+                            heading: location.coords.heading ?? prev.heading,
+                        }));
+                    }
+                );
+            } catch (error) {
+                console.error("Erro ao iniciar GPS no TelemetryContext:", error);
+            }
+        }
+
+        startGpsTracking();
+
+        return () => {
+            if (locationSubscription) {
+                locationSubscription.remove();
+            }
+        };
+    }, [status]);
 
     const toggleTc = useCallback(() => {
         setData((prev) => ({ ...prev, tc: !prev.tc }));
@@ -74,3 +95,11 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
         </TelemetryContext.Provider>
     );
 }
+
+export const useReception = () => {
+    const context = React.useContext(TelemetryContext);
+    if (!context) {
+        throw new Error('useReception deve ser usado dentro de um TelemetryProvider');
+    }
+    return context;
+};

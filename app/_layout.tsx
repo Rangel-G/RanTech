@@ -19,7 +19,6 @@ import React, { useEffect } from "react";
 import { Platform } from "react-native";
 import "react-native-reanimated";
 
-// Configuração global de comportamento das notificações em primeiro/segundo plano
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -39,10 +38,9 @@ export default function RootLayout() {
   useKeepAwake();
 
   useEffect(() => {
-    // Captura exceções JavaScript globais não tratadas
     const defaultErrorHandler = ErrorUtils.getGlobalHandler();
     ErrorUtils.setGlobalHandler((error, isFatal) => {
-      LoggerService.log('ERROR', `Crash Global (Fatal: ${isFatal})`, {
+      LoggerService.log("ERROR", `Crash Global (Fatal: ${isFatal})`, {
         message: error?.message,
         stack: error?.stack,
       });
@@ -54,37 +52,26 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    // Ouvinte global para capturar quando o usuário clica na notificação Push
     const responseListener =
       Notifications.addNotificationResponseReceivedListener((response) => {
         const data = response.notification.request.content.data;
 
-        // Se a notificação for um convite de encontro, redireciona para a tela do mapa
         if (data?.type === "meeting_invite") {
           router.push("/realMap");
         }
       });
 
-    async function setupUI() {
-      try {
-        await NavigationBar.setVisibilityAsync("hidden");
-      } catch (error) {
-        console.warn("Erro no NavigationBar ignorado na inicialização", error);
+    async function configureUI() {
+      if (Platform.OS === "android") {
+        try {
+          await NavigationBar.setVisibilityAsync("hidden");
+        } catch (error) {
+          console.warn("Erro ao configurar NavigationBar:", error);
+        }
       }
     }
-    setupUI();
 
-    if (Platform.OS !== "android") return;
-
-    const configureNavigationBar = async () => {
-      try {
-        await NavigationBar.setVisibilityAsync("hidden");
-      } catch (error) {
-        console.warn("Erro ao configurar NavigationBar:", error);
-      }
-    };
-
-    configureNavigationBar();
+    configureUI();
 
     return () => {
       responseListener.remove();
@@ -94,9 +81,9 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <ConnectionProvider>
-        <GroupProvider>
-          <LedProvider>
-            <TelemetryProvider>
+        <TelemetryProvider>
+          <GroupProvider>
+            <LedProvider>
               <DashboardProfileProvider>
                 <Stack screenOptions={{ headerShown: false }}>
                   <Stack.Screen name="(tabs)" />
@@ -117,9 +104,9 @@ export default function RootLayout() {
                 </Stack>
                 <StatusBar hidden translucent backgroundColor="transparent" />
               </DashboardProfileProvider>
-            </TelemetryProvider>
-          </LedProvider>
-        </GroupProvider>
+            </LedProvider>
+          </GroupProvider>
+        </TelemetryProvider>
       </ConnectionProvider>
     </ThemeProvider>
   );

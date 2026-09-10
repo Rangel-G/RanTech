@@ -1,4 +1,4 @@
-// services/obdService.ts
+import { OBD_PIDS, ObdPid } from "../constants/obdPids";
 import BleManager, { bleEmitter, ensureBleManagerStarted } from "./ble/ble-manager";
 import { requestBlePermissions } from "./ble/ble-permissions";
 
@@ -12,18 +12,17 @@ export interface OBDDevice {
     name?: string;
 }
 
+export type OBDDataCallback = (pidKey: string, value: number) => void;
+
 class OBDService {
     private connectedDeviceId: string | null = null;
-    private mockListener: ((hexData: string) => void) | null = null;
     private scanListener: ReturnType<typeof bleEmitter.addListener> | null = null;
     private notifyListener: ReturnType<typeof bleEmitter.addListener> | null = null;
 
-    /**
-     * Inicia o scan de dispositivos OBD via BLE.
-     * @param onDeviceFound Chamado a cada periférico encontrado.
-     * @param onError Chamado se a permissão for negada, o Bluetooth estiver
-     * desligado, ou o BleManager falhar ao iniciar — evita falhas silenciosas.
-     */
+    private isPolling = false;
+    private responseBuffer = '';
+    private pendingResolve: ((data: string) => void) | null = null;
+
     async startScan(
         onDeviceFound: (device: OBDDevice) => void,
         onError?: (error: Error) => void
@@ -73,6 +72,7 @@ class OBDService {
     async connectToDevice(deviceId: string): Promise<OBDDevice> {
         if (SIMULATION_MODE) {
             await new Promise(resolve => setTimeout(resolve, 500));
+            this.connectedDeviceId = deviceId;
             return { id: deviceId, name: 'OBDII_Simulador' };
         }
 
@@ -83,7 +83,10 @@ class OBDService {
             await BleManager.connect(deviceId);
             await BleManager.retrieveServices(deviceId);
             this.connectedDeviceId = deviceId;
+
+            this.setupNotificationListener();
             await this.initializeELM327();
+
             return { id: deviceId, name: 'OBDII Device' };
         } catch (error) {
             this.connectedDeviceId = null;
@@ -94,8 +97,113 @@ class OBDService {
     private async initializeELM327() {
         await this.writeCommand('ATZ\r');
         await new Promise(resolve => setTimeout(resolve, 1000));
-        await this.writeCommand('ATE0\r');
-        await this.writeCommand('ATSP0\r');
+        await this.writeCommand('ATE0\r'); // Desativa eco
+        await this.writeCommand('ATL0\r'); // Desativa cabeçalhos / linefeeds
+        await this.writeCommand('ATSP0\r'); // Busca automática de protocolo
+    }
+
+    /**
+     * Inicia o ciclo contínuo de consulta dos PIDs OBD2
+     */
+    async startPolling(onDataReceived: OBDDataCallback) {
+        if (this.isPolling) return;
+        this.isPolling = true;
+
+        const pidsToQuery: { key: string; pidObj: ObdPid }[] = [
+            { key: 'RPM', pidObj: OBD_PIDS.RPM },
+            { key: 'SPEED', pidObj: OBD_PIDS.SPEED },
+            { key: 'COOLANT_TEMP', pidObj: OBD_PIDS.COOLANT_TEMP },
+            { key: 'THROTTLE_POS', pidObj: OBD_PIDS.THROTTLE_POS },
+            { key: 'ENGINE_LOAD', pidObj: OBD_PIDS.ENGINE_LOAD },
+            { key: 'BATTERY', pidObj: OBD_PIDS.BATTERY },
+            { key: 'MAP', pidObj: OBD_PIDS.MAP },
+        ];
+
+        let index = 0;
+
+        while (this.isPolling && (this.connectedDeviceId || SIMULATION_MODE)) {
+            const currentItem = pidsToQuery[index];
+
+            try {
+                const rawResponse = await this.queryPid(currentItem.pidObj.pid);
+                const parsedValue = currentItem.pidObj.parse(rawResponse);
+
+                if (parsedValue !== null && !isNaN(parsedValue)) {
+                    onDataReceived(currentItem.key, parsedValue);
+                }
+            } catch (error) {
+                console.warn(`[OBD] Falha ao ler PID ${currentItem.key}:`, error);
+            }
+
+            index = (index + 1) % pidsToQuery.length;
+            await new Promise(resolve => setTimeout(resolve, 50));
+        }
+    }
+
+    stopPolling() {
+        this.isPolling = false;
+        this.pendingResolve = null;
+        this.responseBuffer = '';
+    }
+
+    private queryPid(command: string): Promise<string> {
+        return new Promise(async (resolve, reject) => {
+            const timeout = setTimeout(() => {
+                this.pendingResolve = null;
+                this.responseBuffer = '';
+                reject(new Error(`Timeout no comando OBD: ${command}`));
+            }, 1000);
+
+            this.pendingResolve = (response) => {
+                clearTimeout(timeout);
+                resolve(response);
+            };
+
+            try {
+                await this.writeCommand(`${command}\r`);
+            } catch (err) {
+                clearTimeout(timeout);
+                this.pendingResolve = null;
+                reject(err);
+            }
+        });
+    }
+
+    private setupNotificationListener() {
+        if (!this.connectedDeviceId || SIMULATION_MODE) return;
+
+        this.notifyListener?.remove();
+        this.notifyListener = bleEmitter.addListener(
+            'BleManagerDidUpdateValueForCharacteristic',
+            ({ value, peripheral }) => {
+                if (peripheral === this.connectedDeviceId && value) {
+                    const chunk = String.fromCharCode(...value);
+                    this.handleIncomingChunk(chunk);
+                }
+            }
+        );
+
+        BleManager.startNotification(
+            this.connectedDeviceId,
+            OBD_SERVICE_UUID,
+            OBD_CHARACTERISTIC_UUID
+        ).catch((err) => console.warn('[OBD] Erro ao ativar notificações BLE:', err));
+    }
+
+    private handleIncomingChunk(chunk: string) {
+        this.responseBuffer += chunk;
+
+        // O caractere '>' indica o fim da transmissão do chip ELM327
+        if (this.responseBuffer.includes('>')) {
+            const fullResponse = this.responseBuffer.replace('>', '').trim();
+            this.responseBuffer = '';
+
+            if (this.pendingResolve) {
+                const resolve = this.pendingResolve;
+                this.pendingResolve = null;
+                resolve(fullResponse);
+            }
+        }
     }
 
     async writeCommand(command: string) {
@@ -106,7 +214,6 @@ class OBDService {
 
         if (!this.connectedDeviceId) throw new Error('Nenhum dispositivo conectado');
 
-        // Converte a string ASCII do comando em um Array de Bytes (números)
         const byteArray = command.split('').map(char => char.charCodeAt(0));
         await BleManager.write(
             this.connectedDeviceId,
@@ -116,47 +223,23 @@ class OBDService {
         );
     }
 
-    async startListening(onDataReceived: (hexData: string) => void) {
+    async disconnect() {
+        this.stopPolling();
         if (SIMULATION_MODE) {
-            this.mockListener = onDataReceived;
+            this.connectedDeviceId = null;
             return;
         }
 
-        if (!this.connectedDeviceId) return;
-
-        this.notifyListener?.remove();
-        this.notifyListener = bleEmitter.addListener(
-            'BleManagerDidUpdateValueForCharacteristic',
-            ({ value, peripheral }) => {
-                if (peripheral === this.connectedDeviceId && value) {
-                    // 'value' já é recebido como um array de bytes numéricos (number[])
-                    const rawString = String.fromCharCode(...value);
-                    onDataReceived(rawString);
-                }
-            }
-        );
-
-        await BleManager.startNotification(
-            this.connectedDeviceId,
-            OBD_SERVICE_UUID,
-            OBD_CHARACTERISTIC_UUID
-        );
-    }
-
-    async disconnect() {
-        if (SIMULATION_MODE) return;
         if (this.connectedDeviceId) {
             this.notifyListener?.remove();
             this.notifyListener = null;
-            await BleManager.disconnect(this.connectedDeviceId);
+            await BleManager.disconnect(this.connectedDeviceId).catch(() => { });
             this.connectedDeviceId = null;
         }
     }
 
     // --- MOTOR DO SIMULADOR ---
     private generateMockResponse(command: string) {
-        if (!this.mockListener) return;
-
         let response = '';
         const cleanCmd = command.replace('\r', '');
 
@@ -211,11 +294,11 @@ class OBDService {
             const A = Math.floor(value / 256).toString(16).padStart(2, '0').toUpperCase();
             const B = (value % 256).toString(16).padStart(2, '0').toUpperCase();
             response = `41 10 ${A} ${B}`;
+        } else {
+            response = 'OK';
         }
 
-        if (response) {
-            this.mockListener(response);
-        }
+        this.handleIncomingChunk(response + '>');
     }
 }
 

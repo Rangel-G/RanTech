@@ -59,7 +59,7 @@ export function RealTimeMap({
         mapRef.current.animateCamera(
           {
             center: { latitude, longitude },
-            pitch: 20,
+            pitch: 50, // Mudado de 20 para 50 (ângulo ideal de navegação)
             heading: heading,
             zoom: 18,
           },
@@ -250,7 +250,9 @@ export function RealTimeMap({
                 ]}
               />
               <View style={styles.memberNameTag}>
-                <Text style={styles.memberNameText}>{member.name}</Text>
+                <Text style={styles.memberNameText}>
+                  {member.name} {member.speed !== undefined ? `• ${member.speed} km/h` : ''}
+                </Text>
               </View>
             </View>
           </Marker>
