@@ -49,11 +49,8 @@ interface GroupContextType {
 
 const GroupContext = createContext<GroupContextType>({} as GroupContextType);
 
-GoogleSignin.configure({
-  webClientId:
-    "4155845801-6lu7s8nhlu1ec34jremb3vm100kh7l58.apps.googleusercontent.com",
-  offlineAccess: false,
-});
+
+
 
 export function GroupProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -66,20 +63,20 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
   const [publicRoutes, setPublicRoutes] = useState<RouteData[]>([]);
   const [privateRoutes, setPrivateRoutes] = useState<RouteData[]>([]);
 
-  // 1º UseEffect: Gerencia a autenticação e carrega os dados locais
   useEffect(() => {
+    // 1. Configura o Google Sign-In assim que o contexto é montado
+    GoogleSignin.configure({
+      webClientId: "4155845801-6lu7s8nhlu1ec34jremb3vm100kh7l58.apps.googleusercontent.com",
+      offlineAccess: false,
+    });
+
+    // 2. Inicia o observador de autenticação do Firebase
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        const savedColor = await AsyncStorage.getItem(
-          `@color_${currentUser.uid}`,
-        );
-        const savedName = await AsyncStorage.getItem(
-          `@name_${currentUser.uid}`,
-        );
-        const savedGroup = await AsyncStorage.getItem(
-          `@group_${currentUser.uid}`,
-        );
+        const savedColor = await AsyncStorage.getItem(`@color_${currentUser.uid}`);
+        const savedName = await AsyncStorage.getItem(`@name_${currentUser.uid}`);
+        const savedGroup = await AsyncStorage.getItem(`@group_${currentUser.uid}`);
 
         setUserName(savedName || currentUser.displayName || "Piloto");
         if (savedColor) setPointerColor(savedColor);
