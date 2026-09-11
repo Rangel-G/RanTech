@@ -53,25 +53,6 @@ export function SpeedDialMenu({
 
   return (
     <View style={styles.container}>
-      {/* Botão Status */}
-      <Animated.View
-        style={[
-          styles.actionWrapper,
-          { opacity, transform: [{ translateY: translateYStatus }] },
-        ]}
-      >
-        <Text style={styles.label}>Status</Text>
-        <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: "#ffaa00" }]}
-          onPress={() => {
-            toggleMenu();
-          }}
-          disabled={!isOpen}
-        >
-          <MaterialCommunityIcons name="car-info" size={20} color="#000" />
-        </TouchableOpacity>
-      </Animated.View>
-
       {/* Botão Encontro */}
       <Animated.View
         style={[
