@@ -4,6 +4,7 @@ const LOG_FILE_PATH = `${FileSystem.documentDirectory}app_debug_logs.txt`;
 
 export type LogLevel = 'INFO' | 'WARN' | 'ERROR';
 type LogListener = (content: string) => void;
+const MAX_LINES = 100;
 
 // Gerenciador de inscritos para atualização em tempo real da interface
 const listeners: Set<LogListener> = new Set();
@@ -19,27 +20,30 @@ export const LoggerService = {
         listeners.forEach(listener => listener(content));
     },
 
-    async log(level: LogLevel, message: string, extraData?: any): Promise<void> {
-        const timestamp = new Date().toISOString();
-        const dataString = extraData
-            ? ` | Data: ${typeof extraData === 'object' ? JSON.stringify(extraData) : extraData}`
-            : '';
-        const logEntry = `[${timestamp}] [${level}] ${message}${dataString}\n`;
-
-        console.log(logEntry.trim());
-
+    async log(level: 'INFO' | 'WARN' | 'ERROR', message: string, data?: any) {
         try {
+            const timestamp = new Date().toISOString();
+            const extraData = data ? ` ${JSON.stringify(data)}` : '';
+            const newLogLine = `[${timestamp}] [${level}] ${message}${extraData}`;
+
+            let fileContent = '';
             const fileInfo = await FileSystem.getInfoAsync(LOG_FILE_PATH);
+
             if (fileInfo.exists) {
-                const existingContent = await FileSystem.readAsStringAsync(LOG_FILE_PATH);
-                await FileSystem.writeAsStringAsync(LOG_FILE_PATH, existingContent + logEntry);
-            } else {
-                await FileSystem.writeAsStringAsync(LOG_FILE_PATH, logEntry);
+                fileContent = await FileSystem.readAsStringAsync(LOG_FILE_PATH);
             }
-            // Dispara atualização para a tela de log instantaneamente
-            await this.notifyListeners();
-        } catch (err) {
-            console.error('Falha ao escrever arquivo de log:', err);
+
+            let lines = fileContent ? fileContent.split('\n') : [];
+            lines.push(newLogLine);
+
+            // Mantém estritamente apenas as últimas 100 linhas para evitar estouro de memória
+            if (lines.length > MAX_LINES) {
+                lines = lines.slice(-MAX_LINES);
+            }
+
+            await FileSystem.writeAsStringAsync(LOG_FILE_PATH, lines.join('\n'));
+        } catch (error) {
+            console.error('Falha ao escrever arquivo de log:', error);
         }
     },
 
@@ -60,21 +64,22 @@ export const LoggerService = {
     async getLogs(): Promise<string> {
         try {
             const fileInfo = await FileSystem.getInfoAsync(LOG_FILE_PATH);
-            if (fileInfo.exists) {
-                return await FileSystem.readAsStringAsync(LOG_FILE_PATH);
-            }
-            return 'Nenhum log registrado ainda.';
-        } catch (err) {
-            return `[ERROR] Erro ao ler arquivo de logs: ${err}`;
+            if (!fileInfo.exists) return 'Nenhum log encontrado.';
+            return await FileSystem.readAsStringAsync(LOG_FILE_PATH);
+        } catch (error) {
+            console.error('Erro ao ler logs:', error);
+            return 'Erro ao carregar logs.';
         }
     },
 
     async clearLogs(): Promise<void> {
         try {
-            await FileSystem.deleteAsync(LOG_FILE_PATH, { idempotent: true });
-            await this.log('INFO', 'Arquivo de logs reiniciado pelo usuário.');
-        } catch (err) {
-            console.error('Erro ao limpar arquivo de logs:', err);
+            const fileInfo = await FileSystem.getInfoAsync(LOG_FILE_PATH);
+            if (fileInfo.exists) {
+                await FileSystem.deleteAsync(LOG_FILE_PATH);
+            }
+        } catch (error) {
+            console.error('Erro ao limpar logs:', error);
         }
     },
 };

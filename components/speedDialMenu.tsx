@@ -11,13 +11,11 @@ import {
 interface SpeedDialMenuProps {
   onMeetingPress: () => void;
   onClearPress: () => void;
-  onStatusPress: () => void;
 }
 
 export function SpeedDialMenu({
   onMeetingPress,
   onClearPress,
-  onStatusPress,
 }: SpeedDialMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const animation = useRef(new Animated.Value(0)).current;
@@ -67,7 +65,6 @@ export function SpeedDialMenu({
           style={[styles.actionButton, { backgroundColor: "#ffaa00" }]}
           onPress={() => {
             toggleMenu();
-            onStatusPress();
           }}
           disabled={!isOpen}
         >

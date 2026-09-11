@@ -11,8 +11,7 @@ export interface GroupMember {
   updatedAt: number;
   name: string;
   pushToken?: string;
-  statusBadge?: "active" | "fuel" | "flat_tire" | "food" | "stopped";
-  speed?: number; // <-- Velocidade em km/h transmitida no comboio
+  speed?: number;
 }
 
 export interface LocationPayload {
@@ -22,8 +21,7 @@ export interface LocationPayload {
   pointerColor: string;
   name?: string;
   pushToken?: string;
-  statusBadge?: "active" | "fuel" | "flat_tire" | "food" | "stopped";
-  speed?: number; // <-- Velocidade em km/h para o payload do Firebase
+  speed?: number; 
 }
 
 export interface RouteCoordinate {
@@ -368,21 +366,6 @@ export const GroupService = {
       `groups/${groupKey}/meetings/${meetingId}/status`,
     );
     await set(statusRef, status);
-  },
-
-  /**
-   * Atualiza o status visual do usuário no mapa
-   */
-  async updateUserStatus(
-    groupKey: string,
-    userId: string,
-    statusBadge: "active" | "fuel" | "flat_tire" | "food" | "stopped",
-  ) {
-    const statusRef = ref(
-      rtdb,
-      `groups/${groupKey}/members/${userId}/statusBadge`,
-    );
-    await set(statusRef, statusBadge);
   },
 
   /**

@@ -29,6 +29,7 @@ import {
 export function LogViewerSection() {
   const [logs, setLogs] = useState<string>("");
   const [modalVisible, setModalVisible] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState(false);
 
   const handleOpenLogs = async () => {
     const content = await LoggerService.getLogs();
@@ -252,18 +253,31 @@ export function SettingsScreen() {
     Alert.alert("Sucesso", "Relações de Marcha salvas!");
   };
 
+  const [saveFeedback, setSaveFeedback] = useState(false); // Estado para feedback visual
+
   const handleSaveMapSettings = async () => {
-    await saveMapSettings(mapColor, pilotName);
-    if (user?.uid) {
-      await UserService.saveUserSettings(user.uid, {
-        profile: {
-          pilotName,
-          pointerColor: mapColor,
-          activeGroup,
-        },
-      });
+    try {
+      await saveMapSettings(mapColor, pilotName);
+
+      if (user?.uid) {
+        await UserService.saveUserSettings(user.uid, {
+          profile: {
+            pilotName: pilotName || "",
+            pointerColor: mapColor || "#00FFFF",
+            activeGroup: activeGroup || null, // O Firebase aceita null, mas bloqueia undefined
+          },
+        });
+      }
+
+      // Ativa o feedback visual no botão
+      setSaveFeedback(true);
+      setTimeout(() => setSaveFeedback(false), 3000);
+
+      Alert.alert("Sucesso", "Perfil e cor salvos com sucesso na sua conta!");
+    } catch (error: any) {
+      LoggerService.log("ERROR", "Erro ao salvar perfil:", error);
+      Alert.alert("Erro", "Não foi possível salvar as configurações: " + error.message);
     }
-    Alert.alert("Sucesso", "Configurações do Perfil salvas!");
   };
 
   const handleCreateGroup = async () => {
@@ -426,10 +440,16 @@ export function SettingsScreen() {
 
           <View style={styles.buttonRow}>
             <Pressable
-              style={[styles.actionButton, styles.saveButton]}
+              style={[
+                styles.actionButton,
+                styles.saveButton,
+                saveFeedback && { backgroundColor: "rgba(0, 255, 100, 0.4)", borderColor: "#00ff66" }
+              ]}
               onPress={handleSaveMapSettings}
             >
-              <Text style={styles.buttonText}>✓ Salvar Perfil / Cor</Text>
+              <Text style={[styles.buttonText, saveFeedback && { color: "#ffffff" }]}>
+                {saveFeedback ? "✓ Salvo com Sucesso!" : "✓ Salvar Perfil / Cor"}
+              </Text>
             </Pressable>
           </View>
 

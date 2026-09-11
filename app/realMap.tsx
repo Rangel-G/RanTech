@@ -2,12 +2,13 @@ import { ClearRoutesModal } from "@/components/Modals/clearRouteModal";
 import { MeetingInviteModal } from "@/components/Modals/meetingInviteModal";
 import { RouteDecisionModal } from "@/components/Modals/routeDecisionModal";
 import { StartRouteModal } from "@/components/Modals/startRouteModal";
-import { StatusSelectionModal } from "@/components/Modals/statusSelectionModal";
 import { TripSummaryModal } from "@/components/Modals/tripSumarryModal";
 import { RealTimeMap } from "@/components/realTimeMaps";
 import { RouteSearchBar } from "@/components/RouteSearchBar";
 import { SpeedDialMenu } from "@/components/speedDialMenu";
+import { RpmGaugeCard } from "@/components/ui/rpmGauge";
 import { useGroup } from "@/contexts/group-context";
+import { useCarData } from "@/hooks/useCarData";
 import { useReception } from "@/hooks/useReception";
 import {
   GroupMember,
@@ -15,6 +16,7 @@ import {
   MeetingData,
   RouteCoordinate,
 } from "@/services/firebase/group-service";
+import { UserService } from "@/services/firebase/user-service";
 import { DirectionsService } from "@/services/google/directionService";
 import { LoggerService } from "@/services/loggerService";
 import { PushService } from "@/services/pushService";
@@ -31,6 +33,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function RealMapScreen() {
   const { data } = useReception();
@@ -47,6 +50,8 @@ export default function RealMapScreen() {
     };
   }, []);
 
+  const insets = useSafeAreaInsets();
+  const carData = useCarData();
   const lastFirebaseUpdate = useRef<number>(0);
   const isRecalculating = useRef(false);
   const [isNavigating, setIsNavigating] = useState(false);
@@ -76,7 +81,6 @@ export default function RealMapScreen() {
   const [expoPushToken, setExpoPushToken] = useState<string | undefined>();
   const [activeMeeting, setActiveMeeting] = useState<MeetingData | null>(null);
   const [showMeetingInvite, setShowMeetingInvite] = useState(false);
-  const [statusModalVisible, setStatusModalVisible] = useState(false);
 
   const tripStartTime = useRef<number>(0);
   const lastCoords = useRef<{ latitude: number; longitude: number } | null>(
@@ -87,10 +91,6 @@ export default function RealMapScreen() {
 
   const [tripSummaryData, setTripSummaryData] = useState<any | null>(null);
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
-
-  const currentStatus = useRef<
-    "active" | "fuel" | "flat_tire" | "food" | "stopped"
-  >("active");
 
   const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
@@ -176,7 +176,6 @@ export default function RealMapScreen() {
     };
   }, [activeGroup, userId]);
 
-
   // 1. Referências para evitar reinicialização do GPS
   const speedRef = useRef(data.speed);
   const activeGroupRef = useRef(activeGroup);
@@ -185,7 +184,6 @@ export default function RealMapScreen() {
   const pointerColorRef = useRef(pointerColor);
   const isNavigatingRef = useRef(isNavigating);
   const activeNavigationRoutesRef = useRef(activeNavigationRoutes);
-
 
   // Sincroniza as referências em cada render sem recriar hooks
   useEffect(() => {
@@ -345,7 +343,6 @@ export default function RealMapScreen() {
                   pointerColor: pointerColorRef.current,
                   name: userNameRef.current,
                   pushToken: localToken,
-                  statusBadge: currentStatus.current,
                   speed: speedRef.current,
                 });
               }
@@ -367,7 +364,84 @@ export default function RealMapScreen() {
         subscription.remove();
       }
     };
-  }, []); // Array de dependências VAZIO: roda uma única vez na criação do componente
+  }, []);
+
+  const handleGenerateRoute = async (isPrivate: boolean, isReplace: boolean = false) => {
+    if (!pendingCoords) return;
+
+    try {
+      LoggerService.log(
+        "INFO",
+        `[RealMap] Solicitando rota no Google Directions... (Privada: ${isPrivate})`
+      );
+
+      if (isReplace && userId) {
+        if (isPrivate) {
+          await UserService.clearPrivateRoutes(userId);
+        } else if (activeGroup) {
+          await GroupService.clearMyGroupRoutes(activeGroup, userId);
+        }
+      }
+
+      const routeResult = await DirectionsService.getRoute(
+        userLocation,
+        pendingCoords,
+        apiKey
+      );
+
+      const routeId = `rota_${Date.now()}`;
+      const routePayload = {
+        creatorId: userId || "user_local",
+        creatorName: userName || "Piloto",
+        color: pointerColor || "#00ffff",
+        origin: userLocation,
+        destination: {
+          ...pendingCoords,
+          address: destinationAddress || "Ponto Selecionado",
+        },
+        coordinates: routeResult.coordinates,
+        isPrivate,
+      };
+
+      await saveRoute(routeId, routePayload, isPrivate);
+      LoggerService.log("INFO", "[RealMap] Rota gerada e exibida com sucesso.");
+
+      setModalVisible(false);
+      setTemporaryDestination(null);
+      setPendingCoords(null);
+    } catch (error: any) {
+      LoggerService.log("ERROR", "[RealMap] Falha ao traçar rota:", error?.message || error);
+      Alert.alert(
+        "Erro de Rota",
+        error?.message || "Não foi possível calcular o trajeto para este destino."
+      );
+    }
+  };
+
+  const handleClearRoutes = async (type: "public" | "private" | "all") => {
+    try {
+      LoggerService.log("INFO", `[RealMap] Executando remoção de rotas do tipo: ${type}`);
+
+      if ((type === "public" || type === "all") && activeGroup && userId) {
+        await GroupService.clearMyGroupRoutes(activeGroup, userId);
+      }
+
+      if ((type === "private" || type === "all") && userId) {
+        await UserService.clearPrivateRoutes(userId);
+      }
+
+      if (type === "all") {
+        setIsNavigating(false);
+        setNavigationScope(null);
+      }
+
+      setClearModalVisible(false);
+      LoggerService.log("INFO", "[RealMap] Remoção de rotas concluída.");
+    } catch (error: any) {
+      LoggerService.log("ERROR", "[RealMap] Falha ao apagar rotas:", error?.message || error);
+      Alert.alert("Erro", "Não foi possível remover as rotas solicitadas.");
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -408,22 +482,16 @@ export default function RealMapScreen() {
         hasExistingRoute={routes.length > 0}
         destinationName={destinationAddress}
         onReplace={async (isPrivate) => {
-          if (pendingCoords) {
-            LoggerService.log("INFO", "[RealMap] Substituindo rota atual...");
-            setModalVisible(false);
-          }
+          LoggerService.log("INFO", "[RealMap] Ação: Substituir rota atual.");
+          await handleGenerateRoute(isPrivate, true);
         }}
         onNextStop={async (isPrivate) => {
-          if (pendingCoords) {
-            LoggerService.log("INFO", "[RealMap] Adicionando parada à rota...");
-            setModalVisible(false);
-          }
+          LoggerService.log("INFO", "[RealMap] Ação: Adicionar próxima parada.");
+          await handleGenerateRoute(isPrivate, false);
         }}
         onCreateSingle={async (isPrivate) => {
-          if (pendingCoords) {
-            LoggerService.log("INFO", "[RealMap] Criando rota única...");
-            setModalVisible(false);
-          }
+          LoggerService.log("INFO", "[RealMap] Ação: Iniciar rota única.");
+          await handleGenerateRoute(isPrivate, true);
         }}
         onCancel={() => {
           setModalVisible(false);
@@ -435,28 +503,11 @@ export default function RealMapScreen() {
       <SpeedDialMenu
         onMeetingPress={() => setIsSelectingMeetingMode(true)}
         onClearPress={() => setClearModalVisible(true)}
-        onStatusPress={() => setStatusModalVisible(true)}
-      />
-
-      <StatusSelectionModal
-        visible={statusModalVisible}
-        onSelectStatus={async (status) => {
-          LoggerService.log("INFO", `[RealMap] Status do piloto alterado para: ${status}`);
-          currentStatus.current = status;
-          setStatusModalVisible(false);
-          if (activeGroup && userId) {
-            await GroupService.updateUserStatus(activeGroup, userId, status);
-          }
-        }}
-        onCancel={() => setStatusModalVisible(false)}
       />
 
       <ClearRoutesModal
         visible={clearModalVisible}
-        onClear={async (type) => {
-          LoggerService.log("INFO", `[RealMap] Limpando rotas: ${type}`);
-          setClearModalVisible(false);
-        }}
+        onClear={handleClearRoutes}
         onCancel={() => setClearModalVisible(false)}
       />
 
@@ -502,6 +553,21 @@ export default function RealMapScreen() {
           {isNavigating ? "Encerrar Trajeto" : "Iniciar Rota"}
         </Text>
       </TouchableOpacity>
+
+      {/* HUD DE NAVEGAÇÃO: Exibido APENAS quando a navegação estiver ativa */}
+      {isNavigating && (
+        <View 
+          style={[styles.hudContainer, { top: insets.top + 16 }]} 
+          pointerEvents="none"
+        >
+          <View style={styles.gaugeWrapper}>
+            <RpmGaugeCard
+              rpm={carData.rpm}
+              speed={carData.speed}
+            />
+          </View>
+        </View>
+      )}
 
       <StartRouteModal
         visible={startModalVisible}
@@ -565,5 +631,15 @@ const styles = StyleSheet.create({
   },
   navTextStop: {
     color: "#ff4444",
+  },
+  hudContainer: {
+    position: "absolute",
+    right: 16,
+    zIndex: 50,
+    alignItems: "flex-end",
+  },
+  gaugeWrapper: {
+    transform: [{ scale: 0.7 }],
+    transformOrigin: "top right",
   },
 });

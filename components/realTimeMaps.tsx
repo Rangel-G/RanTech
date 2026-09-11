@@ -6,14 +6,14 @@ import {
 } from "@/services/firebase/group-service";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useEffect, useRef } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 
 interface RealTimeMapProps {
   latitude: number;
   longitude: number;
   heading: number;
-  isNavigating?: boolean; // <-- Propriedade para ativar o modo 3D
+  isNavigating?: boolean;
   userColor?: string;
   members?: GroupMember[];
   routes?: RouteData[];
@@ -47,7 +47,6 @@ export function RealTimeMap({
 
   useRouteArrival(latitude, longitude);
 
-  // Atualização da câmera em tempo real (Modo 3D vs Modo 2D)
   useEffect(() => {
     latestCoords.current = { latitude, longitude };
 
@@ -55,18 +54,16 @@ export function RealTimeMap({
       isProgrammaticMove.current = true;
 
       if (isNavigating) {
-        // MODO 3D: Câmera inclinada, zoom aproximado e apontando para a bússola/direção
         mapRef.current.animateCamera(
           {
             center: { latitude, longitude },
-            pitch: 50, // Mudado de 20 para 50 (ângulo ideal de navegação)
+            pitch: 50,
             heading: heading,
             zoom: 18,
           },
           { duration: 500 },
         );
       } else {
-        // MODO 2D: Câmera plana superior apontada para o Norte
         mapRef.current.animateCamera(
           {
             center: { latitude, longitude },
@@ -152,16 +149,15 @@ export function RealTimeMap({
         }
       }}
     >
-      {/* Renderização de Todas as Rotas (Públicas e Privadas) */}
       {routes.map((route) => (
         <React.Fragment key={route.routeId}>
           <Polyline
-            key={route.routeId} // ou route.id
+            key={route.routeId}
             coordinates={route.coordinates}
             strokeColor={route.color || "#00ffff"}
-            strokeWidth={16} // <-- Linha super grossa e visível
-            lineCap="round" // <-- Arredonda as pontas da linha
-            lineJoin="round" // <-- Arredonda as quinas nas curvas
+            strokeWidth={16}
+            lineCap="round"
+            lineJoin="round"
           />
           {route.destination && (
             <Marker coordinate={route.destination}>
@@ -182,7 +178,6 @@ export function RealTimeMap({
         </React.Fragment>
       ))}
 
-      {/* Marcador Provisório de Destino Selecionado */}
       {temporaryDestination && (
         <Marker coordinate={temporaryDestination}>
           <View style={styles.destMarkerContainer}>
@@ -195,92 +190,56 @@ export function RealTimeMap({
         </Marker>
       )}
 
+      {/* Marcador do Próprio Usuário */}
       <Marker
         coordinate={{ latitude, longitude }}
         flat
         rotation={heading}
         anchor={{ x: 0.5, y: 0.5 }}
       >
-        <View style={styles.memberMarkerContainer}>
-          <View style={[styles.markerPointer, { borderColor: userColor }]} />
-          <View style={styles.memberNameTag}>
-            <Text style={styles.memberNameText}>Você</Text>
-          </View>
-        </View>
+        <View style={[styles.markerPointer, { backgroundColor: userColor }]} />
       </Marker>
 
-      {members.map((member) => {
-        // Define o ícone com base no status do usuário
-        let statusIcon = null;
-        if (member.statusBadge === "fuel") statusIcon = "⛽";
-        else if (member.statusBadge === "flat_tire") statusIcon = "🔧";
-        else if (member.statusBadge === "food") statusIcon = "🍔";
-        else if (member.statusBadge === "stopped") statusIcon = "🛑";
-
-        return (
-          <Marker
-            key={member.userId}
-            coordinate={{
-              latitude: member.latitude,
-              longitude: member.longitude,
-            }}
-            flat
-            rotation={member.heading ?? 0}
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
-            <View style={styles.memberMarkerContainer}>
-              {/* Balãozinho de Status Flutuante */}
-              {statusIcon && (
-                <View
-                  style={{
-                    backgroundColor: "rgba(0,0,0,0.7)",
-                    borderRadius: 10,
-                    padding: 2,
-                    marginBottom: -5,
-                    zIndex: 10,
-                  }}
-                >
-                  <Text style={{ fontSize: 16 }}>{statusIcon}</Text>
-                </View>
-              )}
-              <View
-                style={[
-                  styles.markerPointer,
-                  { backgroundColor: member.pointerColor || "#00ffff" },
-                ]}
-              />
-              <View style={styles.memberNameTag}>
-                <Text style={styles.memberNameText}>
-                  {member.name} {member.speed !== undefined ? `• ${member.speed} km/h` : ''}
-                </Text>
-              </View>
-            </View>
-          </Marker>
-        );
-      })}
+      {/* Marcadores dos Membros do Comboio */}
+      {members.map((member) => (
+        <Marker
+          key={member.userId}
+          coordinate={{
+            latitude: member.latitude,
+            longitude: member.longitude,
+          }}
+          flat
+          rotation={member.heading ?? 0}
+          anchor={{ x: 0.5, y: 0.5 }}
+        >
+          <View
+            style={[
+              styles.markerPointer,
+              { backgroundColor: member.pointerColor || "#00ffff" },
+            ]}
+          />
+        </Marker>
+      ))}
     </MapView>
   );
 }
 
 const styles = StyleSheet.create({
-  map: { flex: 1 },
-  memberMarkerContainer: { alignItems: "center", justifyContent: "center" },
+  map: {
+    flex: 1,
+  },
   markerPointer: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     borderColor: "#ffffff",
-    borderWidth: 2,
-    elevation: 3,
+    borderWidth: 3,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 2,
   },
-  memberNameTag: {
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginTop: 4,
-  },
-  memberNameText: { color: "#fff", fontSize: 10, fontWeight: "bold" },
   destMarkerContainer: {
     alignItems: "center",
     justifyContent: "center",
